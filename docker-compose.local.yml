@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: digestgenie-postgres
+    environment:
+      POSTGRES_DB: digestgenie_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: digestgenie2024
+    ports:
+      - "5433:5433"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # Redis for caching
+  redis:
+    image: redis:7-alpine
+    container_name: digestgenie-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  # MailHog for email testing
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: digestgenie-mailhog
+    ports:
+      - "1025:1025"   # SMTP server
+      - "8025:8025"   # Web interface
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

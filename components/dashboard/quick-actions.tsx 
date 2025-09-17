@@ -1,0 +1,111 @@
+'use client'
+
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import {
+  Plus,
+  Wand2,
+  Filter,
+  Download,
+  Settings,
+  Sparkles,
+  Mail,
+  Star,
+  Gift
+} from 'lucide-react'
+
+const quickActions = [
+  {
+    title: 'Grant New Wish',
+    description: 'Add a newsletter subscription',
+    icon: Plus,
+    action: () => console.log('Add newsletter'),
+    color: 'genie',
+    badge: 'Quick'
+  },
+  {
+    title: 'Cast Magic Filter',
+    description: 'Smart content filtering',
+    icon: Filter,
+    action: () => console.log('Apply filter'),
+    color: 'magic',
+    badge: 'AI'
+  },
+  {
+    title: 'Generate Summary',
+    description: 'Create AI digest',
+    icon: Wand2,
+    action: () => console.log('Generate summary'),
+    color: 'emerald',
+    badge: 'New'
+  },
+  {
+    title: 'Export Treasures',
+    description: 'Download saved articles',
+    icon: Download,
+    action: () => console.log('Export'),
+    color: 'blue',
+    badge: 'Pro'
+  }
+]
+
+export function QuickActions() {
+  const [isLoading, setIsLoading] = useState<string | null>(null)
+
+  const handleAction = async (actionName: string, actionFn: () => void) => {
+    setIsLoading(actionName)
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate action
+      actionFn()
+    } finally {
+      setIsLoading(null)
+    }
+  }
+
+  return (
+    <Card className="border-0 shadow-md">
+      <CardHeader>
+        <CardTitle className="flex items-center text-lg">
+          <Sparkles className="w-5 h-5 mr-2 text-genie-600" />
+          Quick Magic Actions
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {quickActions.map((action) => (
+            <Button
+              key={action.title}
+              variant="outline"
+              className="h-auto p-4 flex flex-col items-start space-y-2 hover:shadow-md transition-all"
+              onClick={() => handleAction(action.title, action.action)}
+              disabled={isLoading === action.title}
+            >
+              <div className="flex items-center justify-between w-full">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br ${
+                  action.color === 'genie' ? 'from-genie-500 to-genie-600' :
+                  action.color === 'magic' ? 'from-magic-500 to-magic-600' :
+                  action.color === 'emerald' ? 'from-emerald-500 to-emerald-600' :
+                  'from-blue-500 to-blue-600'
+                }`}>
+                  <action.icon className="w-4 h-4 text-white" />
+                </div>
+                <Badge variant="secondary" className="text-xs">
+                  {action.badge}
+                </Badge>
+              </div>
+              <div className="text-left">
+                <h3 className="font-medium text-sm">{action.title}</h3>
+                <p className="text-xs text-gray-500 mt-1">{action.description}</p>
+              </div>
+              {isLoading === action.title && (
+                <div className="w-4 h-4 border-2 border-genie-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+              )}
+            </Button>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
