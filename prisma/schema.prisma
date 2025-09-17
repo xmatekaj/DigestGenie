@@ -1,0 +1,76 @@
+model Newsletter {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  senderEmail   String?
+  senderDomain  String?
+  websiteUrl    String?
+  logoUrl       String?
+  frequency     String?
+  isPredefined  Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  userSubscriptions UserNewsletterSubscription[]
+  articles         NewsletterArticle[]
+
+  @@map("newsletters")
+}
+
+model UserNewsletterSubscription {
+  id                        String   @id @default(cuid())
+  userId                    String
+  newsletterId              String
+  isActive                  Boolean  @default(true)
+  customCategory            String?
+  aiEnabled                 Boolean  @default(true)
+  aiSummaryEnabled          Boolean  @default(true)
+  aiCategorizationEnabled   Boolean  @default(true)
+  aiInterestFiltering       Boolean  @default(false)
+  displayPreference         Json     @default("{\"type\": \"full\", \"showImages\": true}")
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  newsletter Newsletter @relation(fields: [newsletterId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, newsletterId])
+  @@map("user_newsletter_subscriptions")
+}
+
+model NewsletterArticle {
+  id              String    @id @default(cuid())
+  newsletterId    String
+  userId          String
+  title           String
+  content         String?
+  excerpt         String?
+  url             String?
+  imageUrl        String?
+  aiSummary       String?
+  aiCategory      String?
+  aiInterestScore Float     @default(0)
+  sourceEmailId   String?
+  sourceSubject   String?
+  publishedAt     DateTime?
+  processedAt     DateTime  @default(now())
+  isRead          Boolean   @default(false)
+  isSaved         Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+
+  newsletter Newsletter @relation(fields: [newsletterId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("newsletter_articles")
+}
+
+// Add to existing User model
+model User {
+  // ... existing fields
+  systemEmail String? @unique
+
+  userNewsletterSubscriptions UserNewsletterSubscription[]
+  newsletterArticles          NewsletterArticle[]
+}
