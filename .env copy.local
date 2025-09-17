@@ -1,0 +1,48 @@
+# DigestGenie Local Development Configuration
+
+# Project Info
+PROJECT_NAME="DigestGenie"
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="digestgenie-local-secret-key-2024"
+
+# Database (Docker PostgreSQL on port 5433)
+DATABASE_URL="postgresql://postgres:digestgenie2024@localhost:5433/digestgenie_dev"
+DB_PASSWORD="digestgenie2024"
+
+# Redis (Docker)
+REDIS_URL="redis://localhost:6379"
+
+# Claude API (instead of OpenAI)
+ANTHROPIC_API_KEY="sk-ant-your-claude-api-key-here"
+
+# Google OAuth (Optional for local development)
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
+
+# Email Testing
+EMAIL_DOMAIN="newsletters.localhost"
+SMTP_HOST="localhost"
+SMTP_PORT="1025"
+
+# n8n Configuration
+N8N_ENCRYPTION_KEY="digestgenie-n8n-encryption-key-2024"
+WEBHOOK_URL="http://localhost:5678"
+INTERNAL_API_KEY="digestgenie-internal-api-key-2024"
+
+# Monetization (Keep disabled for local)
+MONETIZATION_ENABLED="false"
+USAGE_LIMITS_ENFORCED="false"
+STRIPE_ENABLED="false"
+
+# Admin Settings
+ADMIN_EMAILS="admin@digestgenie.local"
+
+# Development Settings
+NODE_ENV="development"
+DEBUG_MODE="true"
+LOG_LEVEL="info"
+
+# Feature Flags
+ENABLE_AI_FEATURES="true"
+ENABLE_2FA="true"
+ENABLE_ADMIN_PANEL="true"

@@ -1,37 +1,95 @@
-model Newsletter {
-  id            String   @id @default(cuid())
-  name          String
-  description   String?
-  senderEmail   String?
-  senderDomain  String?
-  websiteUrl    String?
-  logoUrl       String?
-  frequency     String?
-  isPredefined  Boolean  @default(false)
-  isActive      Boolean  @default(true)
-  createdBy     String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model (core authentication)
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  googleId      String?   @unique @map("google_id")
+  passwordHash  String?   @map("password_hash")
+  systemEmail   String?   @unique @map("system_email")
+  isVerified    Boolean   @default(false) @map("is_verified")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user2fa                     User2fa[]
+  emailProcessing             EmailProcessing[]
+  userNewsletterSubscriptions UserNewsletterSubscription[]
+  newsletterArticles          NewsletterArticle[]
+  userCategories              UserCategory[]
+  newsletterCategoryAssignments NewsletterCategoryAssignment[]
+  userPreferences             UserPreferences?
+  userSubscription            UserSubscription?
+  usageEvents                 UsageEvent[]
+  createdNewsletters          Newsletter[] @relation("CreatedBy")
+
+  @@map("users")
+}
+
+// 2FA Implementation
+model User2fa {
+  id          String    @id @default(cuid())
+  userId      String    @map("user_id")
+  secret      String
+  isEnabled   Boolean   @default(false) @map("is_enabled")
+  backupCodes String[]  @map("backup_codes")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_2fa")
+}
+
+// Newsletter Sources
+model Newsletter {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  senderEmail  String?  @map("sender_email")
+  senderDomain String?  @map("sender_domain")
+  websiteUrl   String?  @map("website_url")
+  logoUrl      String?  @map("logo_url")
+  frequency    String?
+  isPredefined Boolean  @default(false) @map("is_predefined")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdBy    String?  @map("created_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
   userSubscriptions UserNewsletterSubscription[]
   articles         NewsletterArticle[]
+  categoryAssignments NewsletterCategoryAssignment[]
+  creator          User? @relation("CreatedBy", fields: [createdBy], references: [id])
 
   @@map("newsletters")
 }
 
+// User Newsletter Subscriptions
 model UserNewsletterSubscription {
   id                        String   @id @default(cuid())
-  userId                    String
-  newsletterId              String
-  isActive                  Boolean  @default(true)
-  customCategory            String?
-  aiEnabled                 Boolean  @default(true)
-  aiSummaryEnabled          Boolean  @default(true)
-  aiCategorizationEnabled   Boolean  @default(true)
-  aiInterestFiltering       Boolean  @default(false)
-  displayPreference         Json     @default("{\"type\": \"full\", \"showImages\": true}")
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
+  userId                    String   @map("user_id")
+  newsletterId              String   @map("newsletter_id")
+  isActive                  Boolean  @default(true) @map("is_active")
+  customCategory            String?  @map("custom_category")
+  aiEnabled                 Boolean  @default(true) @map("ai_enabled")
+  aiSummaryEnabled          Boolean  @default(true) @map("ai_summary_enabled")
+  aiCategorizationEnabled   Boolean  @default(true) @map("ai_categorization_enabled")
+  aiInterestFiltering       Boolean  @default(false) @map("ai_interest_filtering")
+  displayPreference         Json     @default("{\"type\": \"full\", \"showImages\": true}") @map("display_preference")
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
 
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   newsletter Newsletter @relation(fields: [newsletterId], references: [id], onDelete: Cascade)
@@ -40,25 +98,41 @@ model UserNewsletterSubscription {
   @@map("user_newsletter_subscriptions")
 }
 
+// Email Processing
+model EmailProcessing {
+  id                String    @id @default(cuid())
+  userId            String    @map("user_id")
+  emailAddress      String    @map("email_address")
+  processingStatus  String    @default("pending") @map("processing_status")
+  lastProcessedAt   DateTime? @map("last_processed_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_processing")
+}
+
+// Newsletter Articles/Content
 model NewsletterArticle {
-  id              String    @id @default(cuid())
-  newsletterId    String
-  userId          String
-  title           String
-  content         String?
-  excerpt         String?
-  url             String?
-  imageUrl        String?
-  aiSummary       String?
-  aiCategory      String?
-  aiInterestScore Float     @default(0)
-  sourceEmailId   String?
-  sourceSubject   String?
-  publishedAt     DateTime?
-  processedAt     DateTime  @default(now())
-  isRead          Boolean   @default(false)
-  isSaved         Boolean   @default(false)
-  createdAt       DateTime  @default(now())
+  id                    String    @id @default(cuid())
+  newsletterId          String    @map("newsletter_id")
+  userId                String    @map("user_id")
+  title                 String
+  content               String?
+  excerpt               String?
+  url                   String?
+  imageUrl              String?   @map("image_url")
+  aiSummary             String?   @map("ai_summary")
+  aiCategory            String?   @map("ai_category")
+  aiInterestScore       Float     @default(0) @map("ai_interest_score")
+  aiGeneratedThumbnail  String?   @map("ai_generated_thumbnail")
+  publishedAt           DateTime? @map("published_at")
+  processedAt           DateTime  @default(now()) @map("processed_at")
+  isRead                Boolean   @default(false) @map("is_read")
+  isSaved               Boolean   @default(false) @map("is_saved")
+  sourceEmailId         String?   @map("source_email_id")
+  sourceSubject         String?   @map("source_subject")
+  createdAt             DateTime  @default(now()) @map("created_at")
 
   newsletter Newsletter @relation(fields: [newsletterId], references: [id], onDelete: Cascade)
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -66,11 +140,144 @@ model NewsletterArticle {
   @@map("newsletter_articles")
 }
 
-// Add to existing User model
-model User {
-  // ... existing fields
-  systemEmail String? @unique
+// User Categories (custom groupings)
+model UserCategory {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  name        String
+  description String?
+  color       String   @default("#3B82F6")
+  icon        String   @default("folder")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
 
-  userNewsletterSubscriptions UserNewsletterSubscription[]
-  newsletterArticles          NewsletterArticle[]
+  user                User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryAssignments NewsletterCategoryAssignment[]
+
+  @@unique([userId, name])
+  @@map("user_categories")
+}
+
+// Category assignments for newsletters
+model NewsletterCategoryAssignment {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  newsletterId String   @map("newsletter_id")
+  categoryId   String   @map("category_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  newsletter Newsletter   @relation(fields: [newsletterId], references: [id], onDelete: Cascade)
+  category   UserCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, newsletterId, categoryId])
+  @@map("newsletter_category_assignments")
+}
+
+// User Preferences
+model UserPreferences {
+  id                   String   @id @default(cuid())
+  userId               String   @unique @map("user_id")
+  globalAiEnabled      Boolean  @default(true) @map("global_ai_enabled")
+  aiSummaryLength      String   @default("medium") @map("ai_summary_length")
+  aiInterestThreshold  Float    @default(0.5) @map("ai_interest_threshold")
+  digestFrequency      String   @default("daily") @map("digest_frequency")
+  digestTime           String   @default("08:00:00") @map("digest_time")
+  digestTimezone       String   @default("UTC") @map("digest_timezone")
+  defaultView          String   @default("cards") @map("default_view")
+  articlesPerPage      Int      @default(20) @map("articles_per_page")
+  showReadArticles     Boolean  @default(false) @map("show_read_articles")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+// Subscription Plans
+model SubscriptionPlan {
+  id                        String   @id @default(cuid())
+  name                      String   @unique
+  displayName               String   @map("display_name")
+  description               String?
+  priceMonthly              Float    @default(0) @map("price_monthly")
+  priceYearly               Float    @default(0) @map("price_yearly")
+  maxNewsletters            Int      @default(3) @map("max_newsletters")
+  maxArticlesPerMonth       Int      @default(1000) @map("max_articles_per_month")
+  maxSavedArticles          Int      @default(100) @map("max_saved_articles")
+  maxCategories             Int      @default(5) @map("max_categories")
+  aiSummariesEnabled        Boolean  @default(true) @map("ai_summaries_enabled")
+  aiThumbnailsEnabled       Boolean  @default(false) @map("ai_thumbnails_enabled")
+  aiInterestScoringEnabled  Boolean  @default(true) @map("ai_interest_scoring_enabled")
+  customCategoriesEnabled   Boolean  @default(true) @map("custom_categories_enabled")
+  emailDigestEnabled        Boolean  @default(true) @map("email_digest_enabled")
+  advancedFilteringEnabled  Boolean  @default(false) @map("advanced_filtering_enabled")
+  apiAccessEnabled          Boolean  @default(false) @map("api_access_enabled")
+  prioritySupportEnabled    Boolean  @default(false) @map("priority_support_enabled")
+  whiteLabelEnabled         Boolean  @default(false) @map("white_label_enabled")
+  isActive                  Boolean  @default(true) @map("is_active")
+  sortOrder                 Int      @default(0) @map("sort_order")
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
+
+  userSubscriptions UserSubscription[]
+
+  @@map("subscription_plans")
+}
+
+// User Subscriptions
+model UserSubscription {
+  id                    String    @id @default(cuid())
+  userId                String    @unique @map("user_id")
+  planId                String    @map("plan_id")
+  status                String    @default("active")
+  billingCycle          String    @default("monthly") @map("billing_cycle")
+  currentPeriodStart    DateTime? @map("current_period_start")
+  currentPeriodEnd      DateTime? @map("current_period_end")
+  trialStart            DateTime? @map("trial_start")
+  trialEnd              DateTime? @map("trial_end")
+  stripeSubscriptionId  String?   @unique @map("stripe_subscription_id")
+  stripeCustomerId      String?   @map("stripe_customer_id")
+  newslettersCount      Int       @default(0) @map("newsletters_count")
+  articlesThisMonth     Int       @default(0) @map("articles_this_month")
+  savedArticlesCount    Int       @default(0) @map("saved_articles_count")
+  categoriesCount       Int       @default(0) @map("categories_count")
+  startedAt             DateTime  @default(now()) @map("started_at")
+  canceledAt            DateTime? @map("canceled_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  user User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  @@map("user_subscriptions")
+}
+
+// Usage tracking for analytics and billing
+model UsageEvent {
+  id             String   @id @default(cuid())
+  userId         String   @map("user_id")
+  eventType      String   @map("event_type")
+  eventData      Json?    @map("event_data")
+  quotaConsumed  Int      @default(1) @map("quota_consumed")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("usage_events")
+}
+
+// Feature flags for gradual rollout
+model FeatureFlag {
+  id                 String   @id @default(cuid())
+  name               String   @unique
+  description        String?
+  isEnabled          Boolean  @default(false) @map("is_enabled")
+  rolloutPercentage  Int      @default(0) @map("rollout_percentage")
+  targetUsers        String[] @map("target_users")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("feature_flags")
 }
