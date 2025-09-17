@@ -1,36 +1,132 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
+  # Database
   postgres:
     image: postgres:15
-    container_name: digestgenie-postgres
     environment:
-      POSTGRES_DB: digestgenie_dev
+      POSTGRES_DB: newsletter_aggregator
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: digestgenie2024
-    ports:
-      - "5433:5433"
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5433:5433"
     restart: unless-stopped
 
-  # Redis for caching
+  # Redis for caching and job queue
   redis:
     image: redis:7-alpine
-    container_name: digestgenie-redis
     ports:
       - "6379:6379"
     restart: unless-stopped
 
-  # MailHog for email testing
-  mailhog:
-    image: mailhog/mailhog:latest
-    container_name: digestgenie-mailhog
+  # Main Next.js application
+  web:
+    build: .
     ports:
-      - "1025:1025"   # SMTP server
-      - "8025:8025"   # Web interface
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@postgres:5432/newsletter_aggregator
+      REDIS_URL: redis://redis:6379
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      EMAIL_DOMAIN: ${EMAIL_DOMAIN}
+      SMTP_HOST: postal
+      SMTP_PORT: 25
+    depends_on:
+      - postgres
+      - redis
+      - postal
+    volumes:
+      - ./uploads:/app/uploads
+    restart: unless-stopped
+
+  # n8n for workflow automation
+  n8n:
+    image: n8nio/n8n:latest
+    ports:
+      - "5678:5678"
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: postgres
+      DB_POSTGRESDB_PASSWORD: ${DB_PASSWORD}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      WEBHOOK_URL: ${WEBHOOK_URL}
+      GENERIC_TIMEZONE: UTC
+      N8N_SECURE_COOKIE: false
+    depends_on:
+      - postgres
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/home/node/.n8n/workflows
+    restart: unless-stopped
+
+  # Postal mail server
+  postal:
+    image: postal/postal:latest
+    ports:
+      - "25:25"    # SMTP
+      - "80:5000"  # Web interface
+    environment:
+      MYSQL_HOST: postal-mysql
+      MYSQL_DATABASE: postal
+      MYSQL_USERNAME: postal
+      MYSQL_PASSWORD: ${POSTAL_DB_PASSWORD}
+    depends_on:
+      - postal-mysql
+    volumes:
+      - postal_data:/opt/postal
+    restart: unless-stopped
+
+  # MySQL for Postal
+  postal-mysql:
+    image: mariadb:10.6
+    environment:
+      MYSQL_ROOT_PASSWORD: ${POSTAL_DB_PASSWORD}
+      MYSQL_DATABASE: postal
+      MYSQL_USER: postal
+      MYSQL_PASSWORD: ${POSTAL_DB_PASSWORD}
+    volumes:
+      - postal_mysql_data:/var/lib/mysql
+    restart: unless-stopped
+
+  # Background job processor
+  job-processor:
+    build: .
+    command: npm run jobs:process
+    environment:
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@postgres:5432/newsletter_aggregator
+      REDIS_URL: redis://redis:6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - web
+      - n8n
     restart: unless-stopped
 
 volumes:
   postgres_data:
+  n8n_data:
+  postal_data:
+  postal_mysql_data:
