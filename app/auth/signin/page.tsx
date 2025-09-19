@@ -142,12 +142,12 @@ export default function SignInPage() {
                   : 'Sign in to access your magical newsletter dashboard'
                 }
               </CardDescription>
-              {!showTwoFactor && (
+              {/* {!showTwoFactor && (
                 <Badge className="bg-magic-100 text-magic-700 mx-auto mt-2">
                   <Star className="w-3 h-3 mr-1" />
                   Free Forever
                 </Badge>
-              )}
+              )} */}
             </CardHeader>
             
             <CardContent className="space-y-6">
@@ -308,7 +308,7 @@ export default function SignInPage() {
             </CardContent>
           </Card>
 
-          {/* Features Preview */}
+          {/* Features Preview
           {!showTwoFactor && (
             <div className="mt-8 text-center">
               <p className="text-sm text-gray-500 mb-4">Trusted by newsletter enthusiasts</p>
@@ -327,7 +327,7 @@ export default function SignInPage() {
                 </div>
               </div>
             </div>
-          )}
+          )} */}
         </div>
       </div>
     </div>

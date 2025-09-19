@@ -1,11 +1,11 @@
-// app/admin/layout.tsx
-import { NextAuthProvider } from '@/providers/auth';
+// app/admin/layout.tsx - Fixed with proper session handling
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import Link from 'next/link';
 
 async function isAdmin(email: string): Promise<boolean> {
-  const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [
+  const adminEmails = process.env.ADMIN_EMAILS?.split(',').map(e => e.trim()) || [
     'admin@digestgenie.com',
     'matekaj@proton.me'
   ];
@@ -17,13 +17,20 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
+  
+  console.log('Admin Layout - Session:', session); // Debug log
   
   if (!session?.user?.email) {
+    console.log('No session, redirecting to signin'); // Debug log
     redirect('/auth/signin');
   }
 
-  if (!(await isAdmin(session.user.email))) {
+  const userIsAdmin = await isAdmin(session.user.email);
+  console.log('User is admin:', userIsAdmin, 'Email:', session.user.email); // Debug log
+
+  if (!userIsAdmin) {
+    console.log('User not admin, redirecting to dashboard'); // Debug log
     redirect('/dashboard');
   }
 
@@ -37,38 +44,17 @@ export default async function AdminLayout({
                 DigestGenie Admin
               </Link>
               <nav className="hidden md:flex space-x-4">
-                <Link 
-                  href="/admin" 
-                  className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
-                >
+                <Link href="/admin" className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium">
                   Dashboard
                 </Link>
-                <Link 
-                  href="/admin/categories" 
-                  className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
-                >
+                <Link href="/admin/categories" className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium">
                   Categories
-                </Link>
-                <Link 
-                  href="/admin/newsletters" 
-                  className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
-                >
-                  Newsletters
-                </Link>
-                <Link 
-                  href="/admin/users" 
-                  className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
-                >
-                  Users
                 </Link>
               </nav>
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">{session.user.email}</span>
-              <Link 
-                href="/dashboard" 
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-              >
+              <Link href="/dashboard" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
                 Back to App
               </Link>
             </div>
