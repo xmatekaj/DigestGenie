@@ -1,4 +1,4 @@
-// components/landing-page-client.tsx - Client component for landing page
+// components/landing-page-client.tsx - Updated with admin notification banner
 'use client';
 
 import React, { useState } from 'react';
@@ -23,11 +23,15 @@ import {
   List,
   Image,
   Type,
-  LogIn
+  LogIn,
+  Shield,
+  X,
+  ExternalLink
 } from 'lucide-react';
 
 interface LandingPageClientProps {
   session: Session | null;
+  isAdmin: boolean;
 }
 
 // Mock data for predefined newsletters and articles
@@ -122,10 +126,11 @@ function DisplayModeIcon({ mode }: { mode: string }) {
   return <IconComponent className="w-4 h-4" />;
 }
 
-export default function LandingPageClient({ session }: LandingPageClientProps) {
+export default function LandingPageClient({ session, isAdmin }: LandingPageClientProps) {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [currentPage, setCurrentPage] = useState(0);
   const [displayMode, setDisplayMode] = useState('cards');
+  const [showAdminBanner, setShowAdminBanner] = useState(isAdmin);
   
   const itemsPerPage = 6;
 
@@ -246,6 +251,35 @@ export default function LandingPageClient({ session }: LandingPageClientProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* Admin Banner */}
+      {isAdmin && showAdminBanner && (
+        <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between py-3">
+              <div className="flex items-center space-x-3">
+                <Shield className="w-5 h-5" />
+                <span className="text-sm font-medium">
+                  You have admin access. 
+                </span>
+                <Link 
+                  href="/admin" 
+                  className="inline-flex items-center space-x-1 text-sm bg-white/20 hover:bg-white/30 px-3 py-1 rounded-md transition-colors"
+                >
+                  <span>Go to Admin Dashboard</span>
+                  <ExternalLink className="w-3 h-3" />
+                </Link>
+              </div>
+              <button 
+                onClick={() => setShowAdminBanner(false)}
+                className="text-white/80 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -259,11 +293,21 @@ export default function LandingPageClient({ session }: LandingPageClientProps) {
 
             <div className="flex items-center space-x-4">
               {session ? (
-                <Link href="/dashboard">
-                  <button className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                    Go to Dashboard
-                  </button>
-                </Link>
+                <div className="flex items-center space-x-3">
+                  {isAdmin && (
+                    <Link href="/admin">
+                      <button className="flex items-center space-x-2 text-sm bg-orange-600 text-white px-3 py-2 rounded-lg hover:bg-orange-700 transition-colors">
+                        <Shield className="w-4 h-4" />
+                        <span>Admin</span>
+                      </button>
+                    </Link>
+                  )}
+                  <Link href="/dashboard">
+                    <button className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                      Go to Dashboard
+                    </button>
+                  </Link>
+                </div>
               ) : (
                 <Link href="/auth/signin">
                   <button className="flex items-center text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
