@@ -1,20 +1,8 @@
-// app/api/auth/[...nextauth]/route.ts - Fixed Prisma client
+// app/api/auth/[...nextauth]/route.ts - Debug version
 import NextAuth, { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
-import { PrismaAdapter } from "@next-auth/prisma-adapter"
-import { PrismaClient } from '@prisma/client'
-
-// Create a global Prisma client instance
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
-}
-
-export const prisma = globalForPrisma.prisma ?? new PrismaClient()
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -22,17 +10,57 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
-    async session({ session, user }) {
-      if (session.user) {
-        session.user.id = user.id
+    async signIn({ user, account, profile, email, credentials }) {
+      console.log('=== SIGNIN CALLBACK ===')
+      console.log('User:', user)
+      console.log('Account:', account)
+      console.log('Profile:', profile)
+      return true
+    },
+    async jwt({ token, account, profile, user }) {
+      console.log('=== JWT CALLBACK ===')
+      console.log('Token:', token)
+      console.log('Account:', account)
+      console.log('Profile:', profile)
+      console.log('User:', user)
+      
+      if (account && profile) {
+        token.accessToken = account.access_token
+        token.sub = account.providerAccountId
+        token.email = profile.email
+        token.name = profile.name
+        token.picture = (profile as any).picture
+        console.log('Updated token:', token)
+      }
+      return token
+    },
+    async session({ session, token, user }) {
+      console.log('=== SESSION CALLBACK ===')
+      console.log('Session input:', session)
+      console.log('Token input:', token)
+      console.log('User input:', user)
+      
+      if (token) {
+        session.user = {
+          id: token.sub!,
+          email: token.email!,
+          name: token.name!,
+          image: token.picture as string,
+        }
+        session.accessToken = token.accessToken
+        console.log('Updated session:', session)
       }
       return session
     },
     async redirect({ url, baseUrl }) {
-      // Handle redirects properly
-      if (url.startsWith("/")) return `${baseUrl}${url}`
-      if (new URL(url).origin === baseUrl) return url
-      return baseUrl
+      console.log('=== REDIRECT CALLBACK ===')
+      console.log('URL:', url)
+      console.log('Base URL:', baseUrl)
+      
+      // Always redirect to dashboard after successful login
+      const redirectUrl = `${baseUrl}/dashboard`
+      console.log('Redirecting to:', redirectUrl)
+      return redirectUrl
     }
   },
   pages: {
@@ -40,10 +68,22 @@ export const authOptions: NextAuthOptions = {
     error: '/auth/error',
   },
   session: {
-    strategy: 'database',
+    strategy: 'jwt',
+    maxAge: 24 * 60 * 60, // 24 hours
+  },
+  cookies: {
+    sessionToken: {
+      name: 'next-auth.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: false // Set to false for localhost
+      }
+    }
   },
   secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === 'development',
+  debug: true, // Enable all debug logs
 }
 
 const handler = NextAuth(authOptions)

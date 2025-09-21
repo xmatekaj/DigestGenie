@@ -1,4 +1,4 @@
-// app/admin/categories/page.tsx
+// app/admin/categories/page.tsx - Fixed version
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -445,7 +445,7 @@ export default function AdminCategoriesPage() {
               </div>
             </div>
           )}
-        </table>
+        </div>
       </div>
 
       {/* Edit/Create Modal */}
