@@ -1,69 +1,69 @@
-// app/admin/layout.tsx - Fixed with proper session handling
-import { redirect } from 'next/navigation';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import Link from 'next/link';
+// app/layout.tsx - Add SessionProvider to root layout
+import type { Metadata } from 'next'
+import { Inter, Poppins } from 'next/font/google'
+import './globals.css'
+import { Providers } from '@/components/providers'
 
-async function isAdmin(email: string): Promise<boolean> {
-  const adminEmails = process.env.ADMIN_EMAILS?.split(',').map(e => e.trim()) || [
-    'admin@digestgenie.com',
-    'matekaj@proton.me'
-  ];
-  return adminEmails.includes(email);
+const inter = Inter({ 
+  subsets: ['latin'],
+  variable: '--font-inter',
+})
+
+const poppins = Poppins({
+  weight: ['300', '400', '500', '600', '700', '800'],
+  subsets: ['latin'],
+  variable: '--font-poppins',
+})
+
+export const metadata: Metadata = {
+  title: {
+    default: 'DigestGenie - Your AI Newsletter Genie',
+    template: '%s | DigestGenie'
+  },
+  description: 'Organize, summarize, and simplify your newsletters with AI magic. DigestGenie grants three wishes: automatic organization, instant summaries, and time savings.',
+  keywords: [
+    'newsletter',
+    'ai',
+    'email organization', 
+    'digest',
+    'summarization',
+    'productivity',
+    'inbox management',
+    'newsletter aggregator'
+  ],
+  authors: [{ name: 'DigestGenie Team' }],
+  creator: 'DigestGenie',
+  robots: {
+    index: true,
+    follow: true,
+  },
+  icons: {
+    icon: '/favicon.ico',
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://digestgenie.com',
+    siteName: 'DigestGenie',
+    title: 'DigestGenie - Your AI Newsletter Genie',
+    description: 'Organize, summarize, and simplify your newsletters with AI magic.',
+  },
 }
 
-export default async function AdminLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const session = await getServerSession(authOptions);
-  
-  console.log('Admin Layout - Session:', session); // Debug log
-  
-  if (!session?.user?.email) {
-    console.log('No session, redirecting to signin'); // Debug log
-    redirect('/auth/signin');
-  }
-
-  const userIsAdmin = await isAdmin(session.user.email);
-  console.log('User is admin:', userIsAdmin, 'Email:', session.user.email); // Debug log
-
-  if (!userIsAdmin) {
-    console.log('User not admin, redirecting to dashboard'); // Debug log
-    redirect('/dashboard');
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="border-b bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center space-x-6">
-              <Link href="/admin" className="text-xl font-bold text-gray-900">
-                DigestGenie Admin
-              </Link>
-              <nav className="hidden md:flex space-x-4">
-                <Link href="/admin" className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium">
-                  Dashboard
-                </Link>
-                <Link href="/admin/categories" className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium">
-                  Categories
-                </Link>
-              </nav>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">{session.user.email}</span>
-              <Link href="/dashboard" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
-                Back to App
-              </Link>
-            </div>
+    <html lang="en" className={`${inter.variable} ${poppins.variable}`}>
+      <body className={inter.className}>
+        <Providers>
+          <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+            {children}
           </div>
-        </div>
-      </div>
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        {children}
-      </main>
-    </div>
-  );
+        </Providers>
+      </body>
+    </html>
+  )
 }
