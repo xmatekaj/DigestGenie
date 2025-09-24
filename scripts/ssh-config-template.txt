@@ -1,0 +1,13 @@
+# Add this to your local ~/.ssh/config file for easier connection
+
+Host digestgenie
+    HostName 57.129.47.114
+    Port 63852
+    User ubuntu
+    LocalForward 5678 127.0.0.1:5678
+    # Optional: Use key-based auth
+    # IdentityFile ~/.ssh/your_private_key
+
+# With this config, you can simply run:
+# ssh digestgenie
+# Then access n8n at http://localhost:5678
