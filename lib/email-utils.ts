@@ -1,21 +1,21 @@
 // lib/email-utils.ts - Email processing utilities
 import crypto from 'crypto'
 
-/**
- * Generate a unique system email for a user
- */
-export async function generateSystemEmail(userId: string): Promise<string> {
-  const emailDomain = process.env.EMAIL_DOMAIN || 'newsletters.localhost'
+// /**
+//  * Generate a unique system email for a user
+//  */
+// export async function generateSystemEmail(userId: string): Promise<string> {
+//   const emailDomain = process.env.EMAIL_DOMAIN || 'newsletters.localhost'
   
-  // Create a short, unique identifier based on user ID
-  const shortId = userId.slice(0, 8)
-  const timestamp = Date.now().toString().slice(-4)
+//   // Create a short, unique identifier based on user ID
+//   const shortId = userId.slice(0, 8)
+//   const timestamp = Date.now().toString().slice(-4)
   
-  // Generate a more unique identifier if needed
-  const hash = crypto.createHash('md5').update(userId).digest('hex').slice(0, 6)
+//   // Generate a more unique identifier if needed
+//   const hash = crypto.createHash('md5').update(userId).digest('hex').slice(0, 6)
   
-  return `user-${shortId}-${hash}@${emailDomain}`
-}
+//   return `user-${shortId}-${hash}@${emailDomain}`
+// }
 
 /**
  * Validate email address format

@@ -1,6 +1,7 @@
+// components/dashboard/newsletter-feed.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -13,88 +14,84 @@ import {
   Brain,
   Eye,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Mail,
+  Plus,
+  Settings
 } from 'lucide-react'
-
-// Mock data - in real app, this would come from your API
-const mockArticles = [
-  {
-    id: '1',
-    subject: 'The Future of AI in 2024: What to Expect',
-    aiGeneratedTitle: '🤖 AI Breakthroughs Set to Transform Industries This Year',
-    aiSummary: 'Major AI developments expected in healthcare, autonomous vehicles, and creative tools. Key players like OpenAI and Google are releasing game-changing models.',
-    newsletter: {
-      name: 'TechCrunch',
-      logoUrl: '/api/placeholder/32/32'
-    },
-    interestScore: 94,
-    receivedAt: '2024-01-15T10:30:00Z',
-    tags: ['AI', 'Technology', 'Innovation'],
-    aiThumbnailUrl: '/api/placeholder/400/200',
-    isRead: false,
-    isSaved: false
-  },
-  {
-    id: '2',
-    subject: 'Weekly Market Update - January 2024',
-    aiGeneratedTitle: '📈 Market Surge Continues as Tech Stocks Rally',
-    aiSummary: 'S&P 500 reaches new highs driven by AI and clean energy investments. Bitcoin shows stability above $40K threshold.',
-    newsletter: {
-      name: 'Morning Brew',
-      logoUrl: '/api/placeholder/32/32'
-    },
-    interestScore: 87,
-    receivedAt: '2024-01-15T09:00:00Z',
-    tags: ['Finance', 'Markets', 'Investment'],
-    aiThumbnailUrl: '/api/placeholder/400/200',
-    isRead: true,
-    isSaved: true
-  },
-  {
-    id: '3',
-    subject: 'New JavaScript Framework Trends',
-    aiGeneratedTitle: '⚛️ React 19 and Next.js 15 Lead Development Revolution',
-    aiSummary: 'Server components and improved performance metrics are changing how developers build applications. Migration guides available.',
-    newsletter: {
-      name: 'JavaScript Weekly',
-      logoUrl: '/api/placeholder/32/32'
-    },
-    interestScore: 91,
-    receivedAt: '2024-01-15T08:00:00Z',
-    tags: ['Development', 'JavaScript', 'Frameworks'],
-    aiThumbnailUrl: '/api/placeholder/400/200',
-    isRead: false,
-    isSaved: false
-  }
-]
+import Link from 'next/link'
 
 interface Article {
   id: string
   subject: string
-  aiGeneratedTitle: string
-  aiSummary: string
+  aiGeneratedTitle?: string
+  aiSummary?: string
+  content?: string
   newsletter: {
     name: string
-    logoUrl: string
+    logoUrl?: string
   }
-  interestScore: number
+  interestScore?: number
   receivedAt: string
-  tags: string[]
+  tags?: string[]
   aiThumbnailUrl?: string
   isRead: boolean
   isSaved: boolean
+  url?: string
 }
 
-export function NewsletterFeed() {
-  const [articles, setArticles] = useState<Article[]>(mockArticles)
+interface NewsletterFeedProps {
+  className?: string
+}
+
+export function NewsletterFeed({ className }: NewsletterFeedProps) {
+  const [articles, setArticles] = useState<Article[]>([])
+  const [loading, setLoading] = useState(true)
   const [expandedArticles, setExpandedArticles] = useState<Set<string>>(new Set())
 
-  const toggleSaved = (articleId: string) => {
-    setArticles(prev => prev.map(article => 
-      article.id === articleId 
-        ? { ...article, isSaved: !article.isSaved }
-        : article
-    ))
+  useEffect(() => {
+    fetchArticles()
+  }, [])
+
+  const fetchArticles = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/articles')
+      if (response.ok) {
+        const data = await response.json()
+        setArticles(data)
+      } else {
+        console.error('Failed to fetch articles')
+        setArticles([])
+      }
+    } catch (error) {
+      console.error('Error fetching articles:', error)
+      setArticles([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const toggleSaved = async (articleId: string) => {
+    try {
+      const article = articles.find(a => a.id === articleId)
+      if (!article) return
+
+      const response = await fetch(`/api/articles/${articleId}/save`, {
+        method: article.isSaved ? 'DELETE' : 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+
+      if (response.ok) {
+        setArticles(prev => prev.map(article => 
+          article.id === articleId 
+            ? { ...article, isSaved: !article.isSaved }
+            : article
+        ))
+      }
+    } catch (error) {
+      console.error('Error toggling saved status:', error)
+    }
   }
 
   const toggleExpanded = (articleId: string) => {
@@ -109,70 +106,168 @@ export function NewsletterFeed() {
     })
   }
 
-  const markAsRead = (articleId: string) => {
-    setArticles(prev => prev.map(article => 
-      article.id === articleId 
-        ? { ...article, isRead: true }
-        : article
-    ))
+  const markAsRead = async (articleId: string) => {
+    try {
+      const response = await fetch(`/api/articles/${articleId}/read`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+
+      if (response.ok) {
+        setArticles(prev => prev.map(article => 
+          article.id === articleId 
+            ? { ...article, isRead: true }
+            : article
+        ))
+      }
+    } catch (error) {
+      console.error('Error marking article as read:', error)
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffTime = Math.abs(now.getTime() - date.getTime())
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    
+    if (diffDays === 1) return 'Yesterday'
+    if (diffDays < 7) return `${diffDays} days ago`
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+    })
+  }
+
+  if (loading) {
+    return (
+      <div className={`space-y-4 p-6 ${className}`}>
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="text-gray-600 mt-2">Loading articles...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (articles.length === 0) {
+    return (
+      <div className={`space-y-4 p-6 ${className}`}>
+        <div className="text-center py-12">
+          <Mail className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-4 text-lg font-medium text-gray-900">No articles yet</h3>
+          <p className="mt-2 text-gray-500 max-w-sm mx-auto">
+            Subscribe to newsletters to start receiving articles. Your personalized feed will appear here.
+          </p>
+          <div className="mt-6 space-y-2">
+            <Link href="/dashboard/newsletters">
+              <Button className="inline-flex items-center">
+                <Plus className="w-4 h-4 mr-2" />
+                Browse Newsletters
+              </Button>
+            </Link>
+            <div>
+              <Link href="/dashboard/settings">
+                <Button variant="outline" className="inline-flex items-center">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Configure Email
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-4 p-6">
+    <div className={`space-y-4 p-6 ${className}`}>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-gray-900">Your Articles</h2>
+        <div className="text-sm text-gray-500">
+          {articles.filter(a => !a.isRead).length} unread
+        </div>
+      </div>
+
       {articles.map((article) => (
-        <Card key={article.id} className={`border transition-all hover:shadow-md ${
-          !article.isRead ? 'border-l-4 border-l-genie-500 bg-gradient-to-r from-genie-50/30 to-transparent' : ''
-        }`}>
+        <Card 
+          key={article.id} 
+          className={`border transition-all hover:shadow-md cursor-pointer ${
+            !article.isRead ? 'border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-50/30 to-transparent' : ''
+          }`}
+          onClick={() => !article.isRead && markAsRead(article.id)}
+        >
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between">
               <div className="flex items-center space-x-3 flex-1">
-                <img
-                  src={article.newsletter.logoUrl}
-                  alt={article.newsletter.name}
-                  className="w-8 h-8 rounded-lg bg-gray-100"
-                />
+                {article.newsletter.logoUrl ? (
+                  <img
+                    src={article.newsletter.logoUrl}
+                    alt={article.newsletter.name}
+                    className="w-8 h-8 rounded-lg bg-gray-100"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                    <Mail className="w-4 h-4 text-white" />
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
                     <span className="text-sm font-medium text-gray-700">
                       {article.newsletter.name}
                     </span>
-                    <Badge 
-                      variant="outline" 
-                      className={`text-xs ${
-                        article.interestScore >= 90 ? 'border-green-300 text-green-700 bg-green-50' :
-                        article.interestScore >= 80 ? 'border-magic-300 text-magic-700 bg-magic-50' :
-                        'border-gray-300 text-gray-700 bg-gray-50'
-                      }`}
-                    >
-                      <Star className="w-3 h-3 mr-1" />
-                      {article.interestScore}% match
-                    </Badge>
+                    {article.interestScore && (
+                      <Badge 
+                        variant="outline" 
+                        className={`text-xs ${
+                          article.interestScore >= 90 ? 'border-green-300 text-green-700 bg-green-50' :
+                          article.interestScore >= 80 ? 'border-blue-300 text-blue-700 bg-blue-50' :
+                          'border-gray-300 text-gray-700 bg-gray-50'
+                        }`}
+                      >
+                        <Brain className="w-3 h-3 mr-1" />
+                        {article.interestScore}% match
+                      </Badge>
+                    )}
+                  </div>
+                  <h3 className="font-semibold text-gray-900 leading-tight">
+                    {article.aiGeneratedTitle || article.subject}
+                  </h3>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <Clock className="w-3 h-3 text-gray-400" />
+                    <span className="text-xs text-gray-500">
+                      {formatDate(article.receivedAt)}
+                    </span>
                     {!article.isRead && (
-                      <Badge className="bg-genie-100 text-genie-700 text-xs">
-                        <Sparkles className="w-3 h-3 mr-1" />
+                      <Badge variant="secondary" className="text-xs">
                         New
                       </Badge>
                     )}
                   </div>
-                  <h3 className="font-semibold text-lg text-gray-900 leading-tight">
-                    {article.aiGeneratedTitle}
-                  </h3>
                 </div>
               </div>
               
-              <div className="flex items-center space-x-2 ml-4">
+              <div className="flex items-center space-x-2">
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => toggleSaved(article.id)}
-                  className={`${article.isSaved ? 'text-magic-600 hover:text-magic-700' : 'text-gray-400 hover:text-magic-600'}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    toggleSaved(article.id)
+                  }}
+                  className={article.isSaved ? 'text-blue-600' : 'text-gray-400'}
                 >
                   <Bookmark className={`w-4 h-4 ${article.isSaved ? 'fill-current' : ''}`} />
                 </Button>
+                
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => toggleExpanded(article.id)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    toggleExpanded(article.id)
+                  }}
                 >
                   {expandedArticles.has(article.id) ? 
                     <ChevronUp className="w-4 h-4" /> : 
@@ -183,96 +278,60 @@ export function NewsletterFeed() {
             </div>
           </CardHeader>
 
-          <CardContent className="pt-0">
-            {/* AI-generated thumbnail */}
-            {article.aiThumbnailUrl && (
-              <div className="mb-4">
+          {expandedArticles.has(article.id) && (
+            <CardContent className="pt-0">
+              {article.aiThumbnailUrl && (
                 <img
                   src={article.aiThumbnailUrl}
-                  alt="AI-generated article illustration"
-                  className="w-full h-32 object-cover rounded-lg bg-gradient-to-r from-genie-100 to-magic-100"
+                  alt=""
+                  className="w-full h-48 object-cover rounded-lg mb-4"
                 />
-              </div>
-            )}
-
-            {/* AI Summary */}
-            <div className="mb-4">
-              <div className="flex items-center space-x-2 mb-2">
-                <Brain className="w-4 h-4 text-genie-600" />
-                <span className="text-sm font-medium text-genie-700">Genie Summary</span>
-              </div>
-              <p className="text-gray-700 leading-relaxed">
-                {article.aiSummary}
-              </p>
-            </div>
-
-            {/* Full content (when expanded) */}
-            {expandedArticles.has(article.id) && (
-              <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-                <h4 className="font-medium text-gray-900 mb-2">Original Subject:</h4>
-                <p className="text-gray-700 text-sm italic mb-3">{article.subject}</p>
-                <p className="text-gray-600 text-sm">
-                  This is where the full newsletter content would appear. In the real application, 
-                  this would show the complete email content with proper formatting and links.
+              )}
+              
+              <div className="prose prose-sm max-w-none">
+                <p className="text-gray-700 leading-relaxed">
+                  {article.aiSummary || article.content?.substring(0, 300) + '...'}
                 </p>
               </div>
-            )}
-
-            {/* Tags */}
-            <div className="flex flex-wrap gap-2 mb-4">
-              {article.tags.map((tag) => (
-                <Badge key={tag} variant="secondary" className="text-xs">
-                  #{tag}
-                </Badge>
-              ))}
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-              <div className="flex items-center space-x-4 text-sm text-gray-500">
-                <div className="flex items-center">
-                  <Clock className="w-4 h-4 mr-1" />
-                  {new Date(article.receivedAt).toLocaleDateString()}
+              
+              {article.tags && article.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-4">
+                  {article.tags.map((tag, index) => (
+                    <Badge key={index} variant="outline" className="text-xs">
+                      {tag}
+                    </Badge>
+                  ))}
                 </div>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                {!article.isRead && (
-                  <Button
-                    variant="outline"
+              )}
+              
+              <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                <div className="flex items-center space-x-2">
+                  {article.aiSummary && (
+                    <div className="flex items-center text-xs text-blue-600">
+                      <Sparkles className="w-3 h-3 mr-1" />
+                      AI Enhanced
+                    </div>
+                  )}
+                </div>
+                
+                {article.url && (
+                  <Button 
+                    variant="outline" 
                     size="sm"
-                    onClick={() => markAsRead(article.id)}
-                    className="text-xs"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      window.open(article.url, '_blank')
+                    }}
                   >
-                    <Eye className="w-3 h-3 mr-1" />
-                    Mark Read
+                    <ExternalLink className="w-3 h-3 mr-1" />
+                    Read Original
                   </Button>
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs"
-                  onClick={() => window.open('#', '_blank')}
-                >
-                  <ExternalLink className="w-3 h-3 mr-1" />
-                  View Original
-                </Button>
               </div>
-            </div>
-          </CardContent>
+            </CardContent>
+          )}
         </Card>
       ))}
-
-      {/* Load More */}
-      <div className="text-center pt-6">
-        <Button 
-          variant="outline" 
-          className="bg-gradient-to-r from-genie-50 to-magic-50 hover:from-genie-100 hover:to-magic-100"
-        >
-          <Sparkles className="w-4 h-4 mr-2" />
-          Load More Magic
-        </Button>
-      </div>
     </div>
   )
 }

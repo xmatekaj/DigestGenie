@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { prisma } from '@/lib/prisma'
-import { generateSystemEmail } from '@/lib/email-utils'
+//import { generateSystemEmail } from '@/lib/email-utils'
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession()

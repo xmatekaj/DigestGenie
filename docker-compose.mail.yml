@@ -1,0 +1,93 @@
+# docker-compose.postal.yml - Postal Mail Server for localhost/VPS
+version: '3.8'
+
+services:
+  # Postal Mail Server
+  postal:
+    image: postalserver/postal:3.0.2
+    container_name: postal-server
+    hostname: postal.digestgenie.local
+    ports:
+      - "25:25"     # SMTP
+      - "587:587"   # SMTP Submission  
+      - "993:993"   # IMAPS
+      - "5000:5000" # Web Interface
+    environment:
+      - POSTAL_DATABASE_URL=postgresql://postal:postal123@postal-db:5432/postal
+      - POSTAL_RABBITMQ_URL=amqp://postal:postal123@postal-rabbitmq:5672
+      - POSTAL_REDIS_URL=redis://postal-redis:6379/0
+      - POSTAL_SECRET_KEY=postal-secret-key-change-this-in-production
+      - POSTAL_SMTP_HOSTNAME=postal.digestgenie.local
+      - POSTAL_WEB_HOSTNAME=postal.digestgenie.local
+      - POSTAL_WEB_PORT=5000
+      - POSTAL_SMTP_PORT=25
+    volumes:
+      - postal_data:/opt/postal/data
+      - postal_config:/opt/postal/config
+    depends_on:
+      - postal-db
+      - postal-rabbitmq  
+      - postal-redis
+    networks:
+      - postal-network
+    restart: unless-stopped
+
+  # PostgreSQL for Postal
+  postal-db:
+    image: postgres:13
+    container_name: postal-db
+    environment:
+      - POSTGRES_DB=postal
+      - POSTGRES_USER=postal
+      - POSTGRES_PASSWORD=postal123
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8
+    volumes:
+      - postal_db_data:/var/lib/postgresql/data
+    networks:
+      - postal-network
+    restart: unless-stopped
+
+  # RabbitMQ for Postal
+  postal-rabbitmq:
+    image: rabbitmq:3-management
+    container_name: postal-rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=postal
+      - RABBITMQ_DEFAULT_PASS=postal123
+    volumes:
+      - postal_rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - postal-network
+    restart: unless-stopped
+
+  # Redis for Postal
+  postal-redis:
+    image: redis:6
+    container_name: postal-redis
+    volumes:
+      - postal_redis_data:/data
+    networks:
+      - postal-network
+    restart: unless-stopped
+
+  # MailHog for testing (catches outgoing emails)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: mailhog-test
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - postal-network
+    restart: unless-stopped
+
+volumes:
+  postal_data:
+  postal_config:
+  postal_db_data:
+  postal_rabbitmq_data:
+  postal_redis_data:
+
+networks:
+  postal-network:
+    driver: bridge

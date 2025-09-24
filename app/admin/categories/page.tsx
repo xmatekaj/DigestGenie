@@ -1,61 +1,25 @@
-// app/admin/categories/page.tsx - Fixed version
+// app/admin/categories/page.tsx - Fix React import error
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'; // Add React import
 import {
+  Tag,
   Plus,
   Edit2,
   Trash2,
-  Save,
-  X,
   Eye,
   EyeOff,
-  Tag,
-  BookOpen,
-  BarChart3,
-  Globe,
   Zap,
   Code,
   Cpu,
   Briefcase,
+  Globe,
   TrendingUp,
-  Heart,
-  Camera,
-  Music,
-  Gamepad2,
-  Plane,
-  ShoppingBag
+  Filter,
+  Search
 } from 'lucide-react';
 
-// Available icons for categories
-const AVAILABLE_ICONS = [
-  { name: 'Zap', icon: Zap, label: 'Technology' },
-  { name: 'Code', icon: Code, label: 'Programming' },
-  { name: 'Cpu', icon: Cpu, label: 'Electronics' },
-  { name: 'Briefcase', icon: Briefcase, label: 'Business' },
-  { name: 'TrendingUp', icon: TrendingUp, label: 'Startup' },
-  { name: 'Globe', icon: Globe, label: 'Global' },
-  { name: 'BookOpen', icon: BookOpen, label: 'Education' },
-  { name: 'Heart', icon: Heart, label: 'Health' },
-  { name: 'Camera', icon: Camera, label: 'Photography' },
-  { name: 'Music', icon: Music, label: 'Music' },
-  { name: 'Gamepad2', icon: Gamepad2, label: 'Gaming' },
-  { name: 'Plane', icon: Plane, label: 'Travel' },
-  { name: 'ShoppingBag', icon: ShoppingBag, label: 'Shopping' },
-];
-
-// Color gradients for categories
-const COLOR_GRADIENTS = [
-  { name: 'Blue to Cyan', value: 'from-blue-500 to-cyan-500', preview: 'bg-gradient-to-r from-blue-500 to-cyan-500' },
-  { name: 'Green to Emerald', value: 'from-green-500 to-emerald-500', preview: 'bg-gradient-to-r from-green-500 to-emerald-500' },
-  { name: 'Purple to Violet', value: 'from-purple-500 to-violet-500', preview: 'bg-gradient-to-r from-purple-500 to-violet-500' },
-  { name: 'Orange to Red', value: 'from-orange-500 to-red-500', preview: 'bg-gradient-to-r from-orange-500 to-red-500' },
-  { name: 'Pink to Rose', value: 'from-pink-500 to-rose-500', preview: 'bg-gradient-to-r from-pink-500 to-rose-500' },
-  { name: 'Indigo to Blue', value: 'from-indigo-500 to-blue-500', preview: 'bg-gradient-to-r from-indigo-500 to-blue-500' },
-  { name: 'Yellow to Orange', value: 'from-yellow-500 to-orange-500', preview: 'bg-gradient-to-r from-yellow-500 to-orange-500' },
-  { name: 'Emerald to Teal', value: 'from-emerald-500 to-teal-500', preview: 'bg-gradient-to-r from-emerald-500 to-teal-500' },
-];
-
+// Define interfaces
 interface Category {
   id: string;
   name: string;
@@ -68,18 +32,54 @@ interface Category {
   articleCount: number;
 }
 
+interface FormData {
+  name: string;
+  description: string;
+  icon: string;
+  colorGradient: string;
+  isActive: boolean;
+}
+
+// Available icons for categories
+const AVAILABLE_ICONS = [
+  { name: 'Globe', icon: Globe, label: 'Globe' },
+  { name: 'Zap', icon: Zap, label: 'Technology' },
+  { name: 'Code', icon: Code, label: 'Programming' },
+  { name: 'Cpu', icon: Cpu, label: 'Electronics' },
+  { name: 'Briefcase', icon: Briefcase, label: 'Business' },
+  { name: 'TrendingUp', icon: TrendingUp, label: 'Trending' },
+  { name: 'Tag', icon: Tag, label: 'General' }
+];
+
+// Available color gradients
+const AVAILABLE_GRADIENTS = [
+  { name: 'Blue to Cyan', value: 'from-blue-500 to-cyan-500' },
+  { name: 'Green to Emerald', value: 'from-green-500 to-emerald-500' },
+  { name: 'Purple to Violet', value: 'from-purple-500 to-violet-500' },
+  { name: 'Orange to Red', value: 'from-orange-500 to-red-500' },
+  { name: 'Pink to Rose', value: 'from-pink-500 to-rose-500' },
+  { name: 'Indigo to Blue', value: 'from-indigo-500 to-blue-500' },
+  { name: 'Yellow to Orange', value: 'from-yellow-500 to-orange-500' },
+  { name: 'Teal to Green', value: 'from-teal-500 to-green-500' }
+];
+
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [formData, setFormData] = useState({
+  const [searchTerm, setSearchTerm] = useState('');
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
     icon: 'Globe',
     colorGradient: 'from-blue-500 to-cyan-500',
     isActive: true
   });
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
 
   // Fetch categories from API
   const fetchCategories = async () => {
@@ -99,13 +99,8 @@ export default function AdminCategoriesPage() {
     }
   };
 
-  // Load categories on component mount
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
   // Get icon component by name
-  const getIconComponent = (iconName: string) => {
+  const getIconComponent = (iconName: string): React.ComponentType<any> => {
     const iconData = AVAILABLE_ICONS.find(icon => icon.name === iconName);
     return iconData ? iconData.icon : Globe;
   };
@@ -152,6 +147,7 @@ export default function AdminCategoriesPage() {
         }
         
         handleCloseModal();
+        await fetchCategories(); // Refresh the list
       } else {
         const error = await response.json();
         alert(error.error || 'Failed to save category');
@@ -242,93 +238,101 @@ export default function AdminCategoriesPage() {
         setCategories(categories.map(cat => 
           cat.id === categoryId ? updatedCategory : cat
         ));
-      } else {
-        console.error('Failed to update category status');
       }
     } catch (error) {
-      console.error('Error updating category status:', error);
+      console.error('Error toggling category status:', error);
     }
   };
 
-  // Calculate stats
-  const stats = {
-    totalCategories: categories.length,
-    activeCategories: categories.filter(cat => cat.isActive).length,
-    totalArticles: categories.reduce((sum, cat) => sum + cat.articleCount, 0),
-    averageArticlesPerCategory: categories.length > 0 ? Math.round(categories.reduce((sum, cat) => sum + cat.articleCount, 0) / categories.length) : 0
-  };
+  // Filter categories based on search term
+  const filteredCategories = categories.filter(category =>
+    category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    category.description.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-96">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Categories Management</h1>
-          <p className="text-gray-600">Manage newsletter categories for the landing page</p>
+          <h1 className="text-3xl font-bold text-gray-900">Category Management</h1>
+          <p className="text-gray-600 mt-1">Manage content categories for the newsletter platform</p>
         </div>
         <button
           onClick={handleNew}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
         >
-          <Plus className="w-4 h-4 mr-2" />
+          <Plus className="w-5 h-5 mr-2" />
           Add Category
         </button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm">
+      {/* Search and Filter */}
+      <div className="mb-6">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <input
+            type="text"
+            placeholder="Search categories..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white rounded-lg shadow-sm p-6">
           <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Tag className="w-6 h-6 text-blue-600" />
-            </div>
+            <Tag className="w-8 h-8 text-blue-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Categories</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalCategories}</p>
+              <p className="text-2xl font-bold text-gray-900">{categories.length}</p>
             </div>
           </div>
         </div>
         
-        <div className="bg-white p-6 rounded-lg shadow-sm">
+        <div className="bg-white rounded-lg shadow-sm p-6">
           <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Eye className="w-6 h-6 text-green-600" />
-            </div>
+            <Eye className="w-8 h-8 text-green-600" />
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Active Categories</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.activeCategories}</p>
+              <p className="text-sm font-medium text-gray-600">Active</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {categories.filter(c => c.isActive).length}
+              </p>
             </div>
           </div>
         </div>
         
-        <div className="bg-white p-6 rounded-lg shadow-sm">
+        <div className="bg-white rounded-lg shadow-sm p-6">
           <div className="flex items-center">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <BookOpen className="w-6 h-6 text-purple-600" />
-            </div>
+            <EyeOff className="w-8 h-8 text-red-600" />
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Articles</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalArticles}</p>
+              <p className="text-sm font-medium text-gray-600">Inactive</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {categories.filter(c => !c.isActive).length}
+              </p>
             </div>
           </div>
         </div>
         
-        <div className="bg-white p-6 rounded-lg shadow-sm">
+        <div className="bg-white rounded-lg shadow-sm p-6">
           <div className="flex items-center">
-            <div className="p-2 bg-orange-100 rounded-lg">
-              <BarChart3 className="w-6 h-6 text-orange-600" />
-            </div>
+            <Filter className="w-8 h-8 text-purple-600" />
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Avg per Category</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.averageArticlesPerCategory}</p>
+              <p className="text-sm font-medium text-gray-600">Articles</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {categories.reduce((sum, c) => sum + c.articleCount, 0)}
+              </p>
             </div>
           </div>
         </div>
@@ -362,33 +366,28 @@ export default function AdminCategoriesPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {categories.map((category) => {
+              {filteredCategories.map((category) => {
                 const IconComponent = getIconComponent(category.icon);
                 return (
                   <tr key={category.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4">
                       <div className="flex items-center">
-                        <div className={`w-10 h-10 rounded-lg bg-gradient-to-r ${category.colorGradient} flex items-center justify-center mr-4`}>
+                        <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${category.colorGradient} flex items-center justify-center flex-shrink-0`}>
                           <IconComponent className="w-5 h-5 text-white" />
                         </div>
-                        <div>
+                        <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">{category.name}</div>
-                          <div className="text-sm text-gray-500">{category.slug}</div>
+                          <div className="text-sm text-gray-500">/{category.slug}</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900 max-w-xs truncate">
-                        {category.description}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{category.articleCount}</div>
+                      <div className="text-sm text-gray-900">{category.description}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button
                         onClick={() => handleToggleActive(category.id)}
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        className={`inline-flex items-center px-2.5 py-1.5 rounded-full text-xs font-medium ${
                           category.isActive
                             ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
@@ -429,7 +428,7 @@ export default function AdminCategoriesPage() {
             </tbody>
           </table>
           
-          {categories.length === 0 && (
+          {filteredCategories.length === 0 && (
             <div className="text-center py-12">
               <Tag className="mx-auto h-12 w-12 text-gray-400" />
               <h3 className="mt-2 text-sm font-medium text-gray-900">No categories</h3>
@@ -455,145 +454,129 @@ export default function AdminCategoriesPage() {
             <div className="px-6 py-4 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {editingCategory ? 'Edit Category' : 'Create New Category'}
+                  {editingCategory ? 'Edit Category' : 'Add New Category'}
                 </h3>
                 <button
                   onClick={handleCloseModal}
                   className="text-gray-400 hover:text-gray-600"
                 >
-                  <X className="w-6 h-6" />
+                  <span className="sr-only">Close</span>
+                  ✕
                 </button>
               </div>
             </div>
-            
-            <div className="p-6 space-y-6">
-              {/* Category Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Category Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g., Technology, Programming"
-                />
-              </div>
 
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description
-                </label>
-                <textarea
-                  rows={3}
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Brief description of this category"
-                />
-              </div>
+            <div className="px-6 py-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Category Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., Technology"
+                  />
+                </div>
 
-              {/* Icon Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Category Icon
-                </label>
-                <div className="grid grid-cols-6 gap-3">
-                  {AVAILABLE_ICONS.map((iconOption) => {
-                    const IconComponent = iconOption.icon;
-                    return (
-                      <button
-                        key={iconOption.name}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, icon: iconOption.name })}
-                        className={`p-3 rounded-lg border-2 transition-colors ${
-                          formData.icon === iconOption.name
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
-                        <IconComponent className="w-6 h-6 mx-auto" />
-                        <div className="text-xs mt-1 text-center">{iconOption.label}</div>
-                      </button>
-                    );
-                  })}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Icon
+                  </label>
+                  <select
+                    value={formData.icon}
+                    onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    {AVAILABLE_ICONS.map((icon) => (
+                      <option key={icon.name} value={icon.name}>
+                        {icon.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
-              {/* Color Gradient */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Color Gradient
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
                 </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {COLOR_GRADIENTS.map((gradient) => (
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Brief description of the category"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Color Theme
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {AVAILABLE_GRADIENTS.map((gradient) => (
                     <button
                       key={gradient.value}
                       type="button"
                       onClick={() => setFormData({ ...formData, colorGradient: gradient.value })}
-                      className={`p-3 rounded-lg border-2 transition-colors ${
-                        formData.colorGradient === gradient.value
-                          ? 'border-blue-500'
+                      className={`p-3 rounded-lg border-2 transition-all ${
+                        formData.colorGradient === gradient.value 
+                          ? 'border-blue-500 ring-2 ring-blue-200' 
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
-                      <div className={`w-full h-8 rounded ${gradient.preview} mb-2`}></div>
-                      <div className="text-xs text-center">{gradient.name}</div>
+                      <div className={`w-full h-8 rounded bg-gradient-to-r ${gradient.value}`}></div>
+                      <p className="text-xs text-gray-600 mt-1 text-center">{gradient.name}</p>
                     </button>
                   ))}
                 </div>
               </div>
 
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.isActive}
+                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label className="ml-2 text-sm text-gray-700">
+                  Active (visible to users)
+                </label>
+              </div>
+
               {/* Preview */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+              <div className="border-t border-gray-200 pt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Preview
                 </label>
-                <div className="flex items-center p-4 bg-gray-50 rounded-lg">
-                  <div className={`w-12 h-12 rounded-lg bg-gradient-to-r ${formData.colorGradient} flex items-center justify-center mr-4`}>
-                    {React.createElement(getIconComponent(formData.icon), { className: "w-6 h-6 text-white" })}
+                <div className="flex items-center">
+                  <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${formData.colorGradient} flex items-center justify-center`}>
+                    {React.createElement(getIconComponent(formData.icon), { className: "w-5 h-5 text-white" })}
                   </div>
-                  <div>
-                    <div className="font-medium text-gray-900">{formData.name || 'Category Name'}</div>
+                  <div className="ml-3">
+                    <div className="text-sm font-medium text-gray-900">{formData.name || 'Category Name'}</div>
                     <div className="text-sm text-gray-500">{formData.description || 'Category description'}</div>
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Active Status */}
-              <div>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.isActive}
-                    onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Category is active and visible to users</span>
-                </label>
-              </div>
-
-              {/* Form Actions */}
-              <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  {editingCategory ? 'Update Category' : 'Create Category'}
-                </button>
-              </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={handleCloseModal}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmit}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700"
+              >
+                {editingCategory ? 'Update Category' : 'Add Category'}
+              </button>
             </div>
           </div>
         </div>

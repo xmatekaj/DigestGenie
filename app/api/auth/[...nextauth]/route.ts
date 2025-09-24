@@ -1,44 +1,98 @@
-// app/api/auth/[...nextauth]/route.ts - Debug version
+// app/api/auth/[...nextauth]/route.ts - Updated with Gmail scopes
 import NextAuth, { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
+import { prisma } from '@/lib/prisma'
 
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          // Add Gmail scopes for email access
+          scope: [
+            'openid',
+            'email', 
+            'profile',
+            'https://www.googleapis.com/auth/gmail.readonly', // Read Gmail emails
+            'https://www.googleapis.com/auth/gmail.metadata'   // Access email metadata
+          ].join(' ')
+        }
+      }
     })
   ],
   callbacks: {
-    async signIn({ user, account, profile, email, credentials }) {
+    async signIn({ user, account, profile }) {
       console.log('=== SIGNIN CALLBACK ===')
-      console.log('User:', user)
-      console.log('Account:', account)
-      console.log('Profile:', profile)
+      console.log('Account scopes:', account?.scope)
+      
+      if (account && profile) {
+        try {
+          // Find or create user in database
+          const existingUser = await prisma.user.findUnique({
+            where: { email: profile.email! }
+          })
+
+          if (!existingUser) {
+            // Create new user
+            await prisma.user.create({
+              data: {
+                id: account.providerAccountId,
+                email: profile.email!,
+                name: profile.name!,
+                image: (profile as any).picture,
+                googleId: account.providerAccountId,
+                // Store access token for Gmail access
+                accessToken: account.access_token,
+                refreshToken: account.refresh_token,
+                tokenExpiry: account.expires_at ? new Date(account.expires_at * 1000) : null,
+                emailVerified: (profile as any).email_verified ? new Date() : null,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              }
+            })
+          } else {
+            // Update existing user's tokens
+            await prisma.user.update({
+              where: { email: profile.email! },
+              data: {
+                accessToken: account.access_token,
+                refreshToken: account.refresh_token,
+                tokenExpiry: account.expires_at ? new Date(account.expires_at * 1000) : null,
+                updatedAt: new Date()
+              }
+            })
+          }
+        } catch (error) {
+          console.error('Database error during sign in:', error)
+          return false
+        }
+      }
+      
       return true
     },
+    
     async jwt({ token, account, profile, user }) {
       console.log('=== JWT CALLBACK ===')
-      console.log('Token:', token)
-      console.log('Account:', account)
-      console.log('Profile:', profile)
-      console.log('User:', user)
       
       if (account && profile) {
         token.accessToken = account.access_token
+        token.refreshToken = account.refresh_token
+        token.tokenExpiry = account.expires_at
         token.sub = account.providerAccountId
         token.email = profile.email
         token.name = profile.name
         token.picture = (profile as any).picture
-        console.log('Updated token:', token)
+        token.scope = account.scope // Store granted scopes
+        console.log('Granted scopes:', account.scope)
       }
+      
       return token
     },
-    async session({ session, token, user }) {
+    
+    async session({ session, token }) {
       console.log('=== SESSION CALLBACK ===')
-      console.log('Session input:', session)
-      console.log('Token input:', token)
-      console.log('User input:', user)
       
       if (token) {
         session.user = {
@@ -47,11 +101,15 @@ export const authOptions: NextAuthOptions = {
           name: token.name!,
           image: token.picture as string,
         }
+        // Include access token in session for Gmail API calls
         session.accessToken = token.accessToken
-        console.log('Updated session:', session)
+        session.tokenExpiry = token.tokenExpiry
+        session.scope = token.scope
       }
+      
       return session
     },
+    
     async redirect({ url, baseUrl }) {
       console.log('=== REDIRECT CALLBACK ===')
       console.log('URL:', url)
@@ -63,14 +121,17 @@ export const authOptions: NextAuthOptions = {
       return redirectUrl
     }
   },
+  
   pages: {
     signIn: '/auth/signin',
     error: '/auth/error',
   },
+  
   session: {
     strategy: 'jwt',
     maxAge: 24 * 60 * 60, // 24 hours
   },
+  
   cookies: {
     sessionToken: {
       name: 'next-auth.session-token',
@@ -78,12 +139,13 @@ export const authOptions: NextAuthOptions = {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: false // Set to false for localhost
+        secure: process.env.NODE_ENV === 'production'
       }
     }
   },
+  
   secret: process.env.NEXTAUTH_SECRET,
-  debug: true, // Enable all debug logs
+  debug: process.env.NODE_ENV === 'development',
 }
 
 const handler = NextAuth(authOptions)

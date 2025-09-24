@@ -1,4 +1,4 @@
-// app/api/admin/categories/[id]/route.ts
+// app/api/admin/categories/[id]/route.ts - Fixed to use correct categories table
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
@@ -8,7 +8,10 @@ const prisma = new PrismaClient();
 
 // Check if user is admin
 async function isAdmin(email: string): Promise<boolean> {
-  const adminEmails = process.env.ADMIN_EMAILS?.split(',').map(e => e.trim()) || [];
+  const adminEmails = process.env.ADMIN_EMAILS?.split(',').map(e => e.trim()) || [
+    'admin@digestgenie.com',
+    'matekaj@proton.me'
+  ];
   return adminEmails.includes(email);
 }
 
@@ -41,6 +44,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
     if (!existingCategory) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 });
+    }
+
+    // Check if this is a system category (user_id should be null)
+    if (existingCategory.user_id !== null) {
+      return NextResponse.json({ error: 'Cannot edit user-specific categories via admin panel' }, { status: 403 });
     }
 
     // Check if another category with the same name exists (excluding current one)
@@ -113,7 +121,13 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       return NextResponse.json({ error: 'Category not found' }, { status: 404 });
     }
 
+    // Check if this is a system category
+    if (existingCategory.user_id !== null) {
+      return NextResponse.json({ error: 'Cannot delete user-specific categories via admin panel' }, { status: 403 });
+    }
+
     // TODO: Check if category has articles - prevent deletion if it does
+    // This will be implemented when you have articles table connected
     // const articleCount = await prisma.articles.count({
     //   where: { ai_category_id: categoryId }
     // });

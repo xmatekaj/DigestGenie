@@ -1,144 +1,130 @@
-// app/api/newsletters/process-email/route.ts - Process incoming emails from n8n
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { OpenAI } from 'openai'
-import { extractArticlesFromEmail } from '@/lib/email-parser'
-import { generateAISummary, categorizeContent, scoreInterest } from '@/lib/ai-utils'
+// 1. Update app/api/newsletters/process-email/route.ts
+// Replace OpenAI imports and functions with Claude utilities
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-})
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { PrismaClient } from '@prisma/client';
+// Replace OpenAI import with Claude utilities
+import { 
+  generateAISummary, 
+  categorizeContent, 
+  scoreInterest 
+} from '@/lib/claude-utils';
 
-export async function POST(request: NextRequest) {
-  // Verify internal API key
-  const authHeader = request.headers.get('authorization')
-  if (!authHeader || !authHeader.startsWith('Bearer ') || 
-      authHeader.split(' ')[1] !== process.env.INTERNAL_API_KEY) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+const prisma = new PrismaClient();
 
+export async function POST(req: NextRequest) {
   try {
-    const emailData = await request.json()
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await req.json();
     const { 
       userId, 
-      from, 
-      subject, 
-      htmlContent, 
-      textContent, 
-      receivedAt, 
-      messageId,
-      newsletterName,
+      newsletterName, 
+      senderEmail, 
       senderDomain,
-      articles = []
-    } = emailData
+      subject, 
+      frequency,
+      receivedAt, 
+      articles,
+      processingStatus 
+    } = body;
 
-    // Find user
-    const user = await prisma.user.findFirst({
-      where: { 
-        OR: [
-          { id: { contains: userId } },
-          { systemEmail: { contains: userId } }
-        ]
-      },
+    // Find or create user
+    const user = await prisma.users.findUnique({
+      where: { email: session.user.email },
       include: {
-        userPreferences: true,
-        userNewsletterSubscriptions: {
-          include: { newsletter: true }
-        }
+        userPreferences: true
       }
-    })
+    });
 
     if (!user) {
-      return NextResponse.json({ 
-        status: 'error',
-        error: 'User not found' 
-      }, { status: 404 })
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // Find or create newsletter
-    let newsletter = await prisma.newsletter.findFirst({
-      where: {
+    let newsletter = await prisma.newsletters.findFirst({
+      where: { 
         OR: [
-          { senderEmail: from },
-          { senderDomain: senderDomain },
-          { name: { contains: newsletterName, mode: 'insensitive' } }
+          { senderEmail: senderEmail },
+          { name: newsletterName }
         ]
       }
-    })
+    });
 
     if (!newsletter) {
-      // Auto-create newsletter from email
-      newsletter = await prisma.newsletter.create({
+      newsletter = await prisma.newsletters.create({
         data: {
-          name: newsletterName || `Newsletter from ${senderDomain}`,
-          senderEmail: from,
+          name: newsletterName,
+          senderEmail: senderEmail,
           senderDomain: senderDomain,
+          frequency: frequency || 'weekly',
           isPredefined: false,
-          frequency: 'unknown'
+          isActive: true
         }
-      })
-
-      // Auto-subscribe user to this newsletter
-      await prisma.userNewsletterSubscription.create({
-        data: {
-          userId: user.id,
-          newsletterId: newsletter.id,
-          isActive: true,
-          aiEnabled: user.userPreferences?.globalAiEnabled ?? true
-        }
-      })
+      });
     }
 
     // Check if user is subscribed to this newsletter
-    const subscription = await prisma.userNewsletterSubscription.findFirst({
+    const subscription = await prisma.userNewsletterSubscriptions.findFirst({
       where: {
         userId: user.id,
         newsletterId: newsletter.id,
         isActive: true
       }
-    })
+    });
 
     if (!subscription) {
       return NextResponse.json({ 
         status: 'ignored',
         message: 'User not subscribed to this newsletter'
-      })
+      });
     }
 
-    // Process articles
-    const processedArticles = []
+    // Process articles with Claude AI
+    const processedArticles = [];
     
     for (const article of articles) {
       try {
-        let aiSummary = null
-        let aiCategory = null
-        let interestScore = 0
+        let aiSummary = null;
+        let aiCategory = null;
+        let interestScore = 0;
 
         // Generate AI content if enabled
         if (subscription.aiEnabled && user.userPreferences?.globalAiEnabled) {
-          // Generate summary
+          // Generate summary using Claude
           if (subscription.aiSummaryEnabled) {
-            aiSummary = await generateAISummary(article.content || article.excerpt, {
-              length: user.userPreferences?.aiSummaryLength || 'medium'
-            })
+            aiSummary = await generateAISummary(
+              article.content || article.title, 
+              {
+                length: user.userPreferences?.aiSummaryLength || 'medium'
+              }
+            );
           }
 
-          // Categorize content
+          // Categorize content using Claude
           if (subscription.aiCategorizationEnabled) {
-            aiCategory = await categorizeContent(article.title + ' ' + (article.content || article.excerpt))
+            aiCategory = await categorizeContent(
+              article.title + ' ' + (article.content || article.excerpt || '')
+            );
           }
 
-          // Score interest level
+          // Score interest level using Claude
           if (subscription.aiInterestFiltering) {
             interestScore = await scoreInterest(
-              article.title + ' ' + (article.content || article.excerpt),
-              user.id // Could include user preferences/history for personalization
-            )
+              article.title + ' ' + (article.content || article.excerpt || ''),
+              user.id
+            );
           }
         }
 
         // Save article to database
-        const savedArticle = await prisma.newsletterArticle.create({
+        const savedArticle = await prisma.newsletterArticles.create({
           data: {
             newsletterId: newsletter.id,
             userId: user.id,
@@ -149,16 +135,16 @@ export async function POST(request: NextRequest) {
             aiSummary,
             aiCategory,
             aiInterestScore: interestScore,
-            sourceEmailId: messageId,
+            sourceEmailId: subject,
             sourceSubject: subject,
             publishedAt: new Date(receivedAt),
             processedAt: new Date()
           }
-        })
+        });
 
-        processedArticles.push(savedArticle)
+        processedArticles.push(savedArticle);
       } catch (articleError) {
-        console.error('Error processing article:', articleError)
+        console.error('Error processing article:', articleError);
         // Continue processing other articles even if one fails
       }
     }
@@ -170,129 +156,235 @@ export async function POST(request: NextRequest) {
         lastProcessedAt: new Date(),
         processingStatus: 'active'
       }
-    })
-
-    // Log usage event for analytics
-    await prisma.usageEvent.create({
-      data: {
-        userId: user.id,
-        eventType: 'email_processed',
-        eventData: {
-          newsletterId: newsletter.id,
-          articleCount: processedArticles.length,
-          aiProcessingEnabled: subscription.aiEnabled
-        },
-        quotaConsumed: processedArticles.length
-      }
-    })
+    });
 
     return NextResponse.json({
       status: 'success',
-      message: `Processed ${processedArticles.length} articles`,
+      message: `Processed ${processedArticles.length} articles with Claude AI`,
       data: {
         newsletterId: newsletter.id,
         articleCount: processedArticles.length,
-        userId: user.id
+        userId: user.id,
+        aiProcessed: true
       }
-    })
+    });
 
   } catch (error) {
-    console.error('Error processing email:', error)
+    console.error('Error processing email:', error);
     return NextResponse.json({
       status: 'error',
       error: error.message || 'Failed to process email'
-    }, { status: 500 })
+    }, { status: 500 });
   }
 }
 
-// Helper function to generate AI summary
-async function generateAISummary(content: string, options: { length: string }): Promise<string | null> {
-  if (!content || !process.env.OPENAI_API_KEY) return null
+---
 
-  try {
-    let maxTokens = 100 // default for medium
-    if (options.length === 'short') maxTokens = 50
-    else if (options.length === 'long') maxTokens = 200
+// 2. Create app/dashboard/settings/ai/page.tsx - AI Settings Page
+'use client';
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful assistant that summarizes newsletter articles. Create concise, informative summaries that capture the key points.'
-        },
-        {
-          role: 'user',
-          content: `Please summarize this article in ${options.length} length:\n\n${content}`
-        }
-      ],
-      max_tokens: maxTokens,
-      temperature: 0.3
-    })
+import { useState, useEffect } from 'react';
+import { Brain, Key, Zap, Settings } from 'lucide-react';
 
-    return response.choices[0]?.message?.content?.trim() || null
-  } catch (error) {
-    console.error('Error generating AI summary:', error)
-    return null
+export default function AISettingsPage() {
+  const [settings, setSettings] = useState({
+    anthropicApiKey: '',
+    globalAiEnabled: true,
+    summaryLength: 'medium',
+    interestThreshold: 0.5,
+    categoryEnabled: true
+  });
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch('/api/user/ai-settings');
+      if (response.ok) {
+        const data = await response.json();
+        setSettings(data);
+      }
+    } catch (error) {
+      console.error('Error fetching AI settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveSettings = async () => {
+    try {
+      setSaving(true);
+      const response = await fetch('/api/user/ai-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings)
+      });
+
+      if (response.ok) {
+        alert('Settings saved successfully!');
+      } else {
+        alert('Failed to save settings');
+      }
+    } catch (error) {
+      console.error('Error saving settings:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
   }
-}
 
-// Helper function to categorize content
-async function categorizeContent(content: string): Promise<string | null> {
-  if (!content || !process.env.OPENAI_API_KEY) return null
+  return (
+    <div className="p-6 max-w-4xl mx-auto">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+          <Brain className="w-8 h-8 mr-3 text-blue-600" />
+          Claude AI Configuration
+        </h1>
+        <p className="text-gray-600 mt-2">
+          Configure Claude AI for enhanced newsletter processing and content analysis
+        </p>
+      </div>
 
-  try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a content categorization assistant. Categorize articles into one of these categories: Technology, Business, Finance, Science, Health, Politics, Entertainment, Sports, Lifestyle, Education, Other. Respond with just the category name.'
-        },
-        {
-          role: 'user',
-          content: `Categorize this content: ${content.substring(0, 500)}`
-        }
-      ],
-      max_tokens: 10,
-      temperature: 0.1
-    })
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="space-y-6">
+          
+          {/* API Key Section */}
+          <div className="border-b border-gray-200 pb-6">
+            <div className="flex items-center mb-4">
+              <Key className="w-5 h-5 text-gray-600 mr-2" />
+              <h3 className="text-lg font-semibold text-gray-900">Claude API Configuration</h3>
+            </div>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <p className="text-blue-800 text-sm">
+                <strong>Note:</strong> Claude API is now configured via environment variables (ANTHROPIC_API_KEY). 
+                This provides better security than storing keys in the database.
+              </p>
+            </div>
 
-    return response.choices[0]?.message?.content?.trim() || 'Other'
-  } catch (error) {
-    console.error('Error categorizing content:', error)
-    return 'Other'
-  }
-}
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  API Status
+                </label>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span className="text-sm text-gray-600">
+                    Claude API Configured via Environment Variables
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-// Helper function to score user interest
-async function scoreInterest(content: string, userId: string): Promise<number> {
-  if (!content || !process.env.OPENAI_API_KEY) return 0.5
+          {/* AI Features Section */}
+          <div className="border-b border-gray-200 pb-6">
+            <div className="flex items-center mb-4">
+              <Zap className="w-5 h-5 text-gray-600 mr-2" />
+              <h3 className="text-lg font-semibold text-gray-900">AI Features</h3>
+            </div>
 
-  try {
-    // This is a simplified version - you could enhance this by including user's reading history,
-    // preferences, and past interactions to make it more personalized
-    
-    const response = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an interest scoring assistant. Rate how interesting this content would be for a general audience on a scale of 0.0 to 1.0, where 0.0 is not interesting at all and 1.0 is extremely interesting. Consider factors like novelty, relevance, and engagement potential. Respond with just a decimal number.'
-        },
-        {
-          role: 'user',
-          content: `Rate this content: ${content.substring(0, 300)}`
-        }
-      ],
-      max_tokens: 10,
-      temperature: 0.1
-    })
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900">Global AI Processing</h4>
+                  <p className="text-sm text-gray-600">Enable Claude AI for all newsletter processing</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.globalAiEnabled}
+                    onChange={(e) => setSettings({...settings, globalAiEnabled: e.target.checked})}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
 
-    const score = parseFloat(response.choices[0]?.message?.content?.trim() || '0.5')
-    return Math.max(0, Math.min(1, score)) // Ensure score is between 0 and 1
-  } catch (error) {
-    console.error('Error scoring interest:', error)
-    return 0.5 // Default neutral score
-  }
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900">Content Categorization</h4>
+                  <p className="text-sm text-gray-600">Automatically categorize articles using Claude AI</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.categoryEnabled}
+                    onChange={(e) => setSettings({...settings, categoryEnabled: e.target.checked})}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Summary Settings */}
+          <div className="pb-6">
+            <div className="flex items-center mb-4">
+              <Settings className="w-5 h-5 text-gray-600 mr-2" />
+              <h3 className="text-lg font-semibold text-gray-900">Summary Settings</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Summary Length
+                </label>
+                <select
+                  value={settings.summaryLength}
+                  onChange={(e) => setSettings({...settings, summaryLength: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="short">Short (1-2 sentences)</option>
+                  <option value="medium">Medium (2-3 sentences)</option>
+                  <option value="long">Long (3-5 sentences)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Interest Threshold: {(settings.interestThreshold * 100).toFixed(0)}%
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={settings.interestThreshold}
+                  onChange={(e) => setSettings({...settings, interestThreshold: parseFloat(e.target.value)})}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                />
+                <p className="text-xs text-gray-600 mt-1">
+                  Only show articles above this interest score
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-6 border-t border-gray-200">
+          <button
+            onClick={saveSettings}
+            disabled={saving}
+            className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }

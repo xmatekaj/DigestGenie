@@ -1,6 +1,7 @@
-// app/page.tsx - Improved approach with admin notification instead of auto-redirect
+// app/page.tsx - Alternative server-side approach (more reliable)
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { redirect } from 'next/navigation';
 import LandingPageClient from '@/components/landing-page-client';
 
 async function isAdmin(email: string): Promise<boolean> {
@@ -14,12 +15,14 @@ async function isAdmin(email: string): Promise<boolean> {
 export default async function LandingPage() {
   const session = await getServerSession(authOptions);
   
-  // Check if user is admin but don't force redirect
-  let userIsAdmin = false;
+  // If user is logged in, check if they're admin and redirect accordingly
   if (session?.user?.email) {
-    userIsAdmin = await isAdmin(session.user.email);
+    const userIsAdmin = await isAdmin(session.user.email);
+    if (userIsAdmin) {
+      redirect('/admin');
+    }
   }
 
-  // Pass both session and admin status to client component
-  return <LandingPageClient session={session} isAdmin={userIsAdmin} />;
+  // Pass session to client component
+  return <LandingPageClient session={session} />;
 }
