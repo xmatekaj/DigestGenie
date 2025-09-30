@@ -1,6 +1,6 @@
+// app/api/webhooks/email/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { processEmail } from '@/lib/email-processor';
 
 const prisma = new PrismaClient();
 
@@ -18,8 +18,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Process the email (this is handled by n8n in production)
-    // This endpoint is just for webhook reception
+    // Store raw email for processing
+    await prisma.rawEmail.create({
+      data: {
+        userId: user.id,
+        sender: from,
+        subject: subject,
+        receivedDate: new Date(),
+        rawContent: html || text || '',
+        processed: false
+      }
+    });
+
+    // Email processing is handled by n8n workflows
+    // This endpoint just receives and stores the webhook data
     console.log('Email received:', { to, from, subject });
 
     return NextResponse.json({ 
