@@ -33,6 +33,7 @@ model User {
   userSubscription            UserSubscription?
   usageEvents                 UsageEvent[]
   createdNewsletters          Newsletter[] @relation("CreatedBy")
+  rawEmails RawEmail[]
 
   @@map("users")
 }
@@ -280,4 +281,36 @@ model FeatureFlag {
   updatedAt          DateTime @updatedAt @map("updated_at")
 
   @@map("feature_flags")
+}
+
+model ProcessingJob {
+  id          String   @id @default(cuid())
+  jobType     String   
+  status      String   @default("pending")
+  attempts    Int      @default(0)
+  data        Json
+  error       String?
+  scheduledAt DateTime @default(now())
+  startedAt   DateTime?   
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("processing_jobs")
+}
+
+// Raw Emails (temporary storage before processing)
+model RawEmail {
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id")
+  messageId    String?   @map("message_id")
+  sender       String
+  subject      String
+  receivedDate DateTime  @map("received_date")
+  rawContent   String    @map("raw_content") // Full email content
+  processed    Boolean   @default(false)
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("raw_emails")
 }

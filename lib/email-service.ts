@@ -246,10 +246,11 @@ export class EmailService {
         where: { id: userId },
         include: {
           emailProcessing: true,
-          processedEmails: {
-            orderBy: { receivedDate: 'desc' },
-            take: 1
-          }
+          // TODO
+          // processedEmails: {
+          //   orderBy: { receivedDate: 'desc' },
+          //   take: 1
+          // }
         }
       })
 
@@ -260,24 +261,25 @@ export class EmailService {
       const today = new Date()
       today.setHours(0, 0, 0, 0)
 
-      const emailsToday = await prisma.processedEmail.count({
-        where: {
-          userId,
-          receivedDate: {
-            gte: today
-          }
-        }
-      })
+      // TODO
+      // const emailsToday = await prisma.processedEmail.count({
+      //   where: {
+      //     userId,
+      //     receivedDate: {
+      //       gte: today
+      //     }
+      //   }
+      // })
 
-      const totalEmails = await prisma.processedEmail.count({
-        where: { userId }
-      })
+      // const totalEmails = await prisma.processedEmail.count({
+      //   where: { userId }
+      // })
 
       return {
         systemEmail: user.systemEmail,
-        totalEmailsReceived: totalEmails,
-        emailsProcessedToday: emailsToday,
-        lastEmailReceived: user.processedEmails[0]?.receivedDate || null,
+        totalEmailsReceived: 0, //totalEmails, // TODO
+        emailsProcessedToday: 0, //emailsToday, // TODO
+        lastEmailReceived: null, //user.processedEmails[0]?.receivedDate || null, // TODO
         processingStatus: user.emailProcessing?.[0]?.processingStatus || 'inactive'
       }
 

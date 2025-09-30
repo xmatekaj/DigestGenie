@@ -209,39 +209,39 @@ export class GmailService {
       const user = await prisma.user.findUnique({
         where: { id: userId }
       })
+      // TODO
+      // if (!user || !user.tokenExpiry || !user.refreshToken) {
+      //   return null
+      // }
 
-      if (!user || !user.tokenExpiry || !user.refreshToken) {
-        return null
-      }
+      // // Check if token is expired (with 5 minute buffer)
+      // const now = new Date()
+      // const expiry = new Date(user.tokenExpiry)
+      // const bufferTime = 5 * 60 * 1000 // 5 minutes
 
-      // Check if token is expired (with 5 minute buffer)
-      const now = new Date()
-      const expiry = new Date(user.tokenExpiry)
-      const bufferTime = 5 * 60 * 1000 // 5 minutes
+      // if (now.getTime() < (expiry.getTime() - bufferTime)) {
+      //   // Token is still valid
+      //   return user.accessToken
+      // }
 
-      if (now.getTime() < (expiry.getTime() - bufferTime)) {
-        // Token is still valid
-        return user.accessToken
-      }
+      // // Refresh the token
+      // this.oauth2Client.setCredentials({
+      //   refresh_token: user.refreshToken
+      // })
 
-      // Refresh the token
-      this.oauth2Client.setCredentials({
-        refresh_token: user.refreshToken
-      })
+      // const { credentials } = await this.oauth2Client.refreshAccessToken()
 
-      const { credentials } = await this.oauth2Client.refreshAccessToken()
+      // // Update user with new token
+      // await prisma.user.update({
+      //   where: { id: userId },
+      //   data: {
+      //     accessToken: credentials.access_token,
+      //     tokenExpiry: credentials.expiry_date ? new Date(credentials.expiry_date) : null,
+      //     updatedAt: new Date()
+      //   }
+      // })
 
-      // Update user with new token
-      await prisma.user.update({
-        where: { id: userId },
-        data: {
-          accessToken: credentials.access_token,
-          tokenExpiry: credentials.expiry_date ? new Date(credentials.expiry_date) : null,
-          updatedAt: new Date()
-        }
-      })
-
-      return credentials.access_token
+      // return credentials.access_token
 
     } catch (error) {
       console.error('Token refresh failed:', error)

@@ -9,53 +9,53 @@ export class FeatureFlag {
     if (cached && Date.now() < cached.expiry) {
       return cached.value
     }
+    // TODO
+    // const flag = await prisma.featureFlag.findUnique({
+    //   where: { name: flagName }
+    // })
+    // if (!flag) {
+    //   this.cache.set(flagName, { value: false, expiry: Date.now() + this.CACHE_TTL })
+    //   return false
+    // }
 
-    const flag = await prisma.featureFlag.findUnique({
-      where: { name: flagName }
-    })
+    // let isEnabled = flag.isEnabled
 
-    if (!flag) {
-      this.cache.set(flagName, { value: false, expiry: Date.now() + this.CACHE_TTL })
-      return false
-    }
+    // // Check rollout percentage
+    // if (isEnabled && flag.rolloutPercentage < 100) {
+    //   if (userId) {
+    //     // Deterministic rollout based on user ID
+    //     const hash = this.hashUserId(userId)
+    //     isEnabled = hash % 100 < flag.rolloutPercentage
+    //   } else {
+    //     // Random rollout
+    //     isEnabled = Math.random() * 100 < flag.rolloutPercentage
+    //   }
+    // }
 
-    let isEnabled = flag.isEnabled
+    // // Check targeted users
+    // if (isEnabled && flag.targetUsers && flag.targetUsers.length > 0 && userId) {
+    //   isEnabled = flag.targetUsers.includes(userId)
+    // }
 
-    // Check rollout percentage
-    if (isEnabled && flag.rolloutPercentage < 100) {
-      if (userId) {
-        // Deterministic rollout based on user ID
-        const hash = this.hashUserId(userId)
-        isEnabled = hash % 100 < flag.rolloutPercentage
-      } else {
-        // Random rollout
-        isEnabled = Math.random() * 100 < flag.rolloutPercentage
-      }
-    }
-
-    // Check targeted users
-    if (isEnabled && flag.targetUsers && flag.targetUsers.length > 0 && userId) {
-      isEnabled = flag.targetUsers.includes(userId)
-    }
-
-    this.cache.set(flagName, { value: isEnabled, expiry: Date.now() + this.CACHE_TTL })
-    return isEnabled
+    // this.cache.set(flagName, { value: isEnabled, expiry: Date.now() + this.CACHE_TTL })
+    return false //isEnabled
   }
 
   static async setFlag(flagName: string, enabled: boolean, rolloutPercentage = 100) {
-    await prisma.featureFlag.upsert({
-      where: { name: flagName },
-      create: {
-        name: flagName,
-        isEnabled: enabled,
-        rolloutPercentage
-      },
-      update: {
-        isEnabled: enabled,
-        rolloutPercentage,
-        updatedAt: new Date()
-      }
-    })
+    // TODO
+    // await prisma.featureFlag.upsert({
+    //   where: { name: flagName },
+    //   create: {
+    //     name: flagName,
+    //     isEnabled: enabled,
+    //     rolloutPercentage
+    //   },
+    //   update: {
+    //     isEnabled: enabled,
+    //     rolloutPercentage,
+    //     updatedAt: new Date()
+    //   }
+    // })
 
     // Clear cache
     this.cache.delete(flagName)
