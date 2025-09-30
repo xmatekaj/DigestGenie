@@ -77,8 +77,7 @@ export function StatsCards() {
             </div>
             <p className={`text-xs mt-1 ${
               stat.changeType === 'positive' ? 'text-emerald-600' : 
-              stat.changeType === 'negative' ? 'text-red-600' : 
-              'text-gray-500'
+              stat.changeType === 'neutral' ? 'text-red-600' :  'text-gray-500'
             }`}>
               {stat.changeType === 'positive' && <TrendingUp className="w-3 h-3 inline mr-1" />}
               {stat.change}

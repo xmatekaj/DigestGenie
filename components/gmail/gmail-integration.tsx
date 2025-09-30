@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, Mail, AlertCircle, CheckCircle, Sync } from 'lucide-react'
+import { Loader2, Mail, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react'
 
 interface EmailSummary {
   id: string
@@ -117,7 +117,7 @@ export function GmailIntegration() {
               <Mail className="h-5 w-5" />
               Gmail Integration
             </div>
-            <Badge variant={isAuthenticated ? "success" : "secondary"}>
+            <Badge variant={isAuthenticated ? "default" : "secondary"}>
               {isAuthenticated ? (
                 <><CheckCircle className="h-3 w-3 mr-1" /> Connected</>
               ) : (
@@ -158,7 +158,7 @@ export function GmailIntegration() {
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Sync className="h-4 w-4" />
+                <RefreshCw className="h-4 w-4" />
               )}
               {isLoading ? 'Fetching...' : 'Fetch Emails'}
             </Button>

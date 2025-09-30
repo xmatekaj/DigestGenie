@@ -1,4 +1,6 @@
 // /app/api/subscription/route.ts - Subscription API (hidden)
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { SubscriptionService } from '@/lib/subscription'

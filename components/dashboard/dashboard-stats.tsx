@@ -133,7 +133,7 @@ export function DashboardStats() {
             <Badge 
               variant={stats.systemEmailGenerated ? 
                 (stats.processingStatus === 'active' ? 'default' : 'secondary') 
-                : 'outline'
+                : 'secondary'
               }
               className="text-xs"
             >

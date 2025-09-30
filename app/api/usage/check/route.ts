@@ -1,3 +1,10 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { PrismaClient } from '@prisma/client';
+import { SubscriptionService } from '@/lib/subscription'
+import { FeatureFlag } from '@/lib/feature-flags'
+
+const prisma = new PrismaClient();
 // /app/api/usage/check/route.ts - Usage limit checking
 export async function POST(request: NextRequest) {
   const session = await getServerSession()

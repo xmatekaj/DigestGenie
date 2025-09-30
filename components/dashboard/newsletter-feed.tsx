@@ -219,7 +219,7 @@ export function NewsletterFeed({ className }: NewsletterFeedProps) {
                     </span>
                     {article.interestScore && (
                       <Badge 
-                        variant="outline" 
+                        variant="secondary" 
                         className={`text-xs ${
                           article.interestScore >= 90 ? 'border-green-300 text-green-700 bg-green-50' :
                           article.interestScore >= 80 ? 'border-blue-300 text-blue-700 bg-blue-50' :
@@ -297,7 +297,7 @@ export function NewsletterFeed({ className }: NewsletterFeedProps) {
               {article.tags && article.tags.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-4">
                   {article.tags.map((tag, index) => (
-                    <Badge key={index} variant="outline" className="text-xs">
+                    <Badge key={index} variant="secondary" className="text-xs">
                       {tag}
                     </Badge>
                   ))}

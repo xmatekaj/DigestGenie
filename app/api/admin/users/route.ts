@@ -24,16 +24,16 @@ export async function GET(req: NextRequest) {
     }
 
     // Fetch users with their newsletter counts and last activity
-    const users = await prisma.users.findMany({
+    const users = await prisma.user.findMany({
       include: {
         _count: {
           select: {
-            userNewsletters: true
+            userNewsletterSubscriptions: true
           }
         }
       },
       orderBy: {
-        created_at: 'desc'
+        createdAt: 'desc'
       }
     });
 
@@ -48,11 +48,11 @@ export async function GET(req: NextRequest) {
       id: user.id,
       name: user.name,
       email: user.email,
-      status: user.is_active ? 'active' : 'inactive',
+      status: user.isVerified ? 'active' : 'inactive',
       role: adminEmails.includes(user.email) ? 'admin' : 'user',
-      newsletterCount: user._count.userNewsletters,
-      lastLogin: user.last_login?.toISOString() || null,
-      createdAt: user.created_at.toISOString(),
+      newsletterCount: user._count.userNewsletterSubscriptions,
+      lastLogin: user.updatedAt?.toISOString() || null,
+      createdAt: user.createdAt.toISOString(),
       plan: 'free' // TODO: Add plan field to database
     }));
 

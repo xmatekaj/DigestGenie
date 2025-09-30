@@ -38,7 +38,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 
     // Check if category exists
-    const existingCategory = await prisma.categories.findUnique({
+    const existingCategory = await prisma.userCategory.findUnique({
       where: { id: categoryId }
     });
 
@@ -47,15 +47,15 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 
     // Check if this is a system category (user_id should be null)
-    if (existingCategory.user_id !== null) {
+    if (existingCategory.userId !== null) {
       return NextResponse.json({ error: 'Cannot edit user-specific categories via admin panel' }, { status: 403 });
     }
 
     // Check if another category with the same name exists (excluding current one)
-    const duplicateCategory = await prisma.categories.findFirst({
+    const duplicateCategory = await prisma.userCategory.findFirst({
       where: {
         name: name.trim(),
-        user_id: null,
+        userId: null,
         NOT: {
           id: categoryId
         }
@@ -67,14 +67,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 
     // Update category
-    const updatedCategory = await prisma.categories.update({
+    const updatedCategory = await prisma.userCategory.update({
       where: { id: categoryId },
       data: {
         name: name.trim(),
         description: description?.trim() || '',
         icon: icon || 'Globe',
-        color_gradient: colorGradient || 'from-blue-500 to-cyan-500',
-        is_active: isActive !== false
+        color: colorGradient || '#3B82F6',
+        sortOrder: 0
       }
     });
 
@@ -84,9 +84,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       description: updatedCategory.description || '',
       slug: updatedCategory.name.toLowerCase().replace(/\s+/g, '-'),
       icon: updatedCategory.icon || 'Globe',
-      colorGradient: updatedCategory.color_gradient || 'from-blue-500 to-cyan-500',
-      isActive: updatedCategory.is_active ?? true,
-      sortOrder: updatedCategory.sort_order || 1,
+      sortOrder: updatedCategory.sortOrder || 1,
       articleCount: 0
     };
 
@@ -113,7 +111,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     const categoryId = params.id;
 
     // Check if category exists
-    const existingCategory = await prisma.categories.findUnique({
+    const existingCategory = await prisma.userCategory.findUnique({
       where: { id: categoryId }
     });
 
@@ -122,7 +120,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     }
 
     // Check if this is a system category
-    if (existingCategory.user_id !== null) {
+    if (existingCategory.userId !== null) {
       return NextResponse.json({ error: 'Cannot delete user-specific categories via admin panel' }, { status: 403 });
     }
 
@@ -139,7 +137,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     // }
 
     // Delete category
-    await prisma.categories.delete({
+    await prisma.userCategory.delete({
       where: { id: categoryId }
     });
 

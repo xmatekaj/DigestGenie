@@ -1,3 +1,9 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { PrismaClient } from '@prisma/client';
+import speakeasy from 'speakeasy';
+
+const prisma = new PrismaClient();
 // /app/api/auth/2fa/verify/route.ts - Verify and enable 2FA
 export async function POST(request: NextRequest) {
   const session = await getServerSession()
@@ -18,7 +24,7 @@ export async function POST(request: NextRequest) {
 
   // Verify token
   const verified = speakeasy.totp.verify({
-    secret: user.user2fa.secret,
+    secret: user.user2fa[0].secret,
     encoding: 'base32',
     token,
     window: 1
@@ -30,7 +36,7 @@ export async function POST(request: NextRequest) {
 
   // Enable 2FA
   await prisma.user2fa.update({
-    where: { userId: user.id },
+    where: { id: user.user2fa[0].id },
     data: { isEnabled: true }
   })
 

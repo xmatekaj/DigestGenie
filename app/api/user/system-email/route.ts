@@ -32,113 +32,56 @@ export async function GET(request: NextRequest) {
   }
 }
 
+async function generateSystemEmail(userId: string): Promise<string> {
+  // Generate a unique system email for receiving newsletters
+  const randomString = Math.random().toString(36).substring(2, 10);
+  return `newsletters-${userId.substring(0, 8)}-${randomString}@digestgenie.local`;
+}
+
 export async function POST(request: NextRequest) {
-  const session = await getServerSession()
+  const session = await getServerSession();
   if (!session?.user?.email) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
     const user = await prisma.user.findUnique({
       where: { email: session.user.email }
-    })
+    });
 
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // Generate system email if doesn't exist
-    let systemEmail = user.systemEmail
+    let systemEmail = user.systemEmail;
     if (!systemEmail) {
-      systemEmail = await generateSystemEmail(user.id)
+      systemEmail = await generateSystemEmail(user.id);
       
       await prisma.user.update({
         where: { id: user.id },
         data: { systemEmail }
-      })
+      });
     }
 
-    // Create or update email processing record
-    await prisma.emailProcessing.upsert({
-      where: { userId: user.id },
-      create: {
+    // Create email processing record (delete old one first to avoid unique constraint issues)
+    await prisma.emailProcessing.deleteMany({ 
+      where: { userId: user.id } 
+    });
+    
+    await prisma.emailProcessing.create({
+      data: {
         userId: user.id,
         emailAddress: systemEmail,
-        processingStatus: 'active'
-      },
-      update: {
         processingStatus: 'active',
-        updatedAt: new Date()
+        lastProcessedAt: new Date()
       }
-    })
+    });
 
-    // TODO: Create email account in Postal mail server
-    // This would involve calling Postal API to create the email account
-    await createPostalEmailAccount(systemEmail, user.id)
+    return NextResponse.json({ systemEmail });
 
-    return NextResponse.json({ 
-      systemEmail,
-      message: 'System email activated successfully'
-    })
   } catch (error) {
-    console.error('Error creating system email:', error)
-    return NextResponse.json({ error: 'Failed to create system email' }, { status: 500 })
-  }
-}
-
-// Helper function to generate unique system email
-async function generateSystemEmail(userId: string): Promise<string> {
-  const shortUserId = userId.slice(0, 8)
-  const baseEmail = `user${shortUserId}@newsletters.yourdomain.com`
-  
-  // Check if email already exists
-  const existingUser = await prisma.user.findFirst({
-    where: { systemEmail: baseEmail }
-  })
-
-  if (existingUser) {
-    // Generate with timestamp suffix if collision
-    const timestamp = Date.now().toString().slice(-4)
-    return `user${shortUserId}${timestamp}@newsletters.yourdomain.com`
-  }
-
-  return baseEmail
-}
-
-// Helper function to create email account in Postal
-async function createPostalEmailAccount(email: string, userId: string) {
-  // This is a placeholder - you'll need to implement actual Postal API integration
-  // based on your Postal server configuration
-  
-  const postalApiUrl = process.env.POSTAL_API_URL
-  const postalApiKey = process.env.POSTAL_API_KEY
-
-  if (!postalApiUrl || !postalApiKey) {
-    console.log('Postal API not configured, skipping email account creation')
-    return
-  }
-
-  try {
-    const response = await fetch(`${postalApiUrl}/api/v1/addresses`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${postalApiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        address: email,
-        user_id: userId,
-        forward_to: null // We'll process emails via webhook
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error(`Postal API error: ${response.statusText}`)
-    }
-
-    console.log(`Successfully created email account: ${email}`)
-  } catch (error) {
-    console.error('Failed to create Postal email account:', error)
-    throw error
+    console.error('Error setting up system email:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

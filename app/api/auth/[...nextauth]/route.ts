@@ -41,13 +41,8 @@ export const authOptions: NextAuthOptions = {
                 id: account.providerAccountId,
                 email: profile.email!,
                 name: profile.name!,
-                image: (profile as any).picture,
                 googleId: account.providerAccountId,
                 // Store access token for Gmail access
-                accessToken: account.access_token,
-                refreshToken: account.refresh_token,
-                tokenExpiry: account.expires_at ? new Date(account.expires_at * 1000) : null,
-                emailVerified: (profile as any).email_verified ? new Date() : null,
                 createdAt: new Date(),
                 updatedAt: new Date()
               }
@@ -57,9 +52,6 @@ export const authOptions: NextAuthOptions = {
             await prisma.user.update({
               where: { email: profile.email! },
               data: {
-                accessToken: account.access_token,
-                refreshToken: account.refresh_token,
-                tokenExpiry: account.expires_at ? new Date(account.expires_at * 1000) : null,
                 updatedAt: new Date()
               }
             })
@@ -96,15 +88,9 @@ export const authOptions: NextAuthOptions = {
       
       if (token) {
         session.user = {
-          id: token.sub!,
           email: token.email!,
           name: token.name!,
-          image: token.picture as string,
         }
-        // Include access token in session for Gmail API calls
-        session.accessToken = token.accessToken
-        session.tokenExpiry = token.tokenExpiry
-        session.scope = token.scope
       }
       
       return session

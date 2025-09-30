@@ -61,12 +61,12 @@ export async function POST(req: NextRequest) {
     let totalArticles = 0;
     
     // Find or create admin user
-    let adminUser = await prisma.users.findUnique({
+    let adminUser = await prisma.user.findUnique({
       where: { email: session.user.email }
     });
     
     if (!adminUser) {
-      adminUser = await prisma.users.create({
+      adminUser = await prisma.user.create({
         data: {
           email: session.user.email,
           name: session.user.name || 'Admin User',
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
         const senderDomain = senderEmail.split('@')[1];
         const newsletterName = extractNewsletterName(fromHeader);
         
-        let newsletter = await prisma.newsletters.findFirst({
+        let newsletter = await prisma.newsletter.findFirst({
           where: {
             OR: [
               { senderEmail: senderEmail },
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
         });
         
         if (!newsletter) {
-          newsletter = await prisma.newsletters.create({
+          newsletter = await prisma.newsletter.create({
             data: {
               name: newsletterName,
               senderEmail: senderEmail,
@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
         for (const article of articles) {
           try {
             // Check if article already exists (prevent duplicates)
-            const existingArticle = await prisma.newsletterArticles.findFirst({
+            const existingArticle = await prisma.newsletterArticle.findFirst({
               where: {
                 title: article.title,
                 newsletterId: newsletter.id,
@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
               continue;
             }
             
-            const savedArticle = await prisma.newsletterArticles.create({
+            const savedArticle = await prisma.newsletterArticle.create({
               data: {
                 newsletterId: newsletter.id,
                 userId: adminUser.id,

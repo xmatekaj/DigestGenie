@@ -52,7 +52,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 
     // Check if newsletter exists
-    const existingNewsletter = await prisma.newsletters.findUnique({
+    const existingNewsletter = await prisma.newsletter.findUnique({
       where: { id: newsletterId }
     });
 
@@ -61,7 +61,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 
     // Check if another newsletter with the same name exists (excluding current one)
-    const duplicateNewsletter = await prisma.newsletters.findFirst({
+    const duplicateNewsletter = await prisma.newsletter.findFirst({
       where: {
         name: name.trim(),
         NOT: {
@@ -78,7 +78,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     const domain = senderDomain || senderEmail.split('@')[1];
 
     // Update newsletter
-    const updatedNewsletter = await prisma.newsletters.update({
+    const updatedNewsletter = await prisma.newsletter.update({
       where: { id: newsletterId },
       data: {
         name: name.trim(),
@@ -94,11 +94,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       include: {
         _count: {
           select: {
-            userNewsletterSubscriptions: {
-              where: {
-                isActive: true
-              }
-            }
+            userSubscriptions: true,
+            articles: true
           }
         }
       }
@@ -115,7 +112,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       frequency: updatedNewsletter.frequency || 'weekly',
       isPredefined: updatedNewsletter.isPredefined,
       isActive: updatedNewsletter.isActive,
-      subscriberCount: updatedNewsletter._count.userNewsletterSubscriptions,
+      subscriberCount: updatedNewsletter._count.userSubscriptions,
       createdAt: updatedNewsletter.createdAt.toISOString(),
       updatedAt: updatedNewsletter.updatedAt.toISOString()
     };
@@ -144,34 +141,35 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     const newsletterId = params.id;
 
     // Check if newsletter exists
-    const existingNewsletter = await prisma.newsletters.findUnique({
+    const existingNewsletter = await prisma.newsletter.findUnique({
       where: { id: newsletterId },
       include: {
         _count: {
           select: {
-            userNewsletterSubscriptions: true,
-            newsletterArticles: true
+            userSubscriptions: true,
+            articles: true
           }
         }
+        }
       }
-    });
+    );
 
     if (!existingNewsletter) {
       return NextResponse.json({ error: 'Newsletter not found' }, { status: 404 });
     }
 
     // Check if newsletter has subscriptions or articles
-    const hasSubscriptions = existingNewsletter._count.userNewsletterSubscriptions > 0;
-    const hasArticles = existingNewsletter._count.newsletterArticles > 0;
+    const hasSubscriptions = existingNewsletter._count.userSubscriptions > 0;
+    const hasArticles = existingNewsletter._count.articles > 0;
 
     if (hasSubscriptions || hasArticles) {
       return NextResponse.json({ 
-        error: `Cannot delete newsletter with ${existingNewsletter._count.userNewsletterSubscriptions} subscriptions and ${existingNewsletter._count.newsletterArticles} articles. Please deactivate instead.` 
+        error: `Cannot delete newsletter with ${existingNewsletter._count.userSubscriptions} subscriptions and ${existingNewsletter._count.articles} articles. Please deactivate instead.` 
       }, { status: 409 });
     }
 
     // Delete newsletter
-    await prisma.newsletters.delete({
+    await prisma.newsletter.delete({
       where: { id: newsletterId }
     });
 

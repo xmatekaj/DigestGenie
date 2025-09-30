@@ -39,43 +39,43 @@ export async function GET(req: NextRequest) {
       processedEmails
     ] = await Promise.all([
       // Total users
-      prisma.users.count(),
+      prisma.user.count(),
       
       // Active users (logged in within last 30 days)
-      prisma.users.count({
+      prisma.user.count({
         where: {
-          updated_at: {
+          updatedAt: {
             gte: lastMonth
           }
         }
       }),
       
       // Total newsletters
-      prisma.newsletters.count(),
+      prisma.newsletter.count(),
       
       // Active newsletters (processed within last 30 days)
-      prisma.newsletters.count({
+      prisma.newsletter.count({
         where: {
-          updated_at: {
+          updatedAt: {
             gte: lastMonth
           }
         }
       }),
       
       // Total subscriptions
-      prisma.userNewsletters.count(),
+      prisma.userNewsletterSubscription.count(),
       
       // Total categories
-      prisma.categories.count({
+      prisma.userCategory.count({
         where: {
-          user_id: null // Only predefined categories
+          userId: null // Only predefined categories
         }
       }),
       
       // Recent signups (last 7 days)
-      prisma.users.count({
+      prisma.user.count({
         where: {
-          created_at: {
+          createdAt: {
             gte: lastWeek
           }
         }
@@ -83,9 +83,9 @@ export async function GET(req: NextRequest) {
       
       // Processed emails this month (if you have an emails table)
       // For now, we'll use newsletter subscriptions as a proxy
-      prisma.userNewsletters.count({
+      prisma.userNewsletterSubscription.count({
         where: {
-          created_at: {
+          createdAt: {
             gte: lastMonth
           }
         }

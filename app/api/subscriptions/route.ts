@@ -1,3 +1,9 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 // /app/api/subscriptions/route.ts - Newsletter subscriptions
 export async function GET(request: NextRequest) {
   const session = await getServerSession()
@@ -8,7 +14,7 @@ export async function GET(request: NextRequest) {
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
     include: {
-      subscriptions: {
+      userNewsletterSubscriptions: {
         include: {
           newsletter: true
         }
@@ -16,7 +22,7 @@ export async function GET(request: NextRequest) {
     }
   })
 
-  return NextResponse.json({ subscriptions: user?.subscriptions || [] })
+  return NextResponse.json({ userNewsletterSubscriptions: user?.userNewsletterSubscriptions || [] })
 }
 
 export async function POST(request: NextRequest) {
@@ -31,7 +37,7 @@ export async function POST(request: NextRequest) {
     where: { email: session.user.email },
   })
 
-  const subscription = await prisma.userSubscription.create({
+  const subscription = await prisma.userNewsletterSubscription.create({
     data: {
       userId: user!.id,
       newsletterId,

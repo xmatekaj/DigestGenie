@@ -168,7 +168,7 @@ export function NewsletterDashboard() {
     newsletter.description?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  return (austrian Federal Patent Office (2023-04-01) - This section represents the part of the patent document where the technical details and invention description would normally be placed. For the purpose of this example, we've truncated it to focus on the component structure.
+  return (
 
 <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -245,7 +245,7 @@ export function NewsletterDashboard() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddNewsletterOpen(false)}>
+                <Button variant="secondary" onClick={() => setIsAddNewsletterOpen(false)}>
                   Cancel
                 </Button>
                 <Button onClick={handleCreateNewsletter} disabled={loading}>
@@ -275,7 +275,7 @@ export function NewsletterDashboard() {
                 className="pl-10"
               />
             </div>
-            <Button variant="outline">
+            <Button variant="secondary">
               <Filter className="h-4 w-4 mr-2" />
               Filter
             </Button>
@@ -301,7 +301,7 @@ export function NewsletterDashboard() {
                 {subscribedNewsletters.length} active subscriptions
               </p>
             </div>
-            <Button variant="outline" size="sm">
+            <Button variant="secondary" size="sm">
               <Settings className="h-4 w-4 mr-2" />
               Manage All
             </Button>
@@ -341,11 +341,11 @@ export function NewsletterDashboard() {
               <p className="text-gray-600">Recent content from your subscriptions</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm">
+              <Button variant="secondary" size="sm">
                 <Sparkles className="h-4 w-4 mr-2" />
                 AI Summary
               </Button>
-              <Button variant="outline" size="sm">
+              <Button variant="secondary" size="sm">
                 Mark All Read
               </Button>
             </div>
@@ -442,7 +442,7 @@ function SubscribedNewsletterCard({ newsletter, onUnsubscribe, loading }: {
             <div>
               <CardTitle className="text-base">{newsletter.name}</CardTitle>
               {newsletter.subscription?.customCategory && (
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="secondary" className="text-xs">
                   {newsletter.subscription.customCategory}
                 </Badge>
               )}
@@ -461,12 +461,12 @@ function SubscribedNewsletterCard({ newsletter, onUnsubscribe, loading }: {
           </div>
           
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
+            <Button variant="secondary" size="sm">
               <Settings className="h-3 w-3" />
             </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" disabled={loading}>
+                <Button variant="secondary" size="sm" disabled={loading}>
                   Unsubscribe
                 </Button>
               </AlertDialogTrigger>

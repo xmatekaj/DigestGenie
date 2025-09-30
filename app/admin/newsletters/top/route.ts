@@ -23,21 +23,21 @@ export async function GET(req: NextRequest) {
     }
 
     // Fetch newsletters with subscriber count
-    const topNewsletters = await prisma.newsletters.findMany({
+    const topNewsletters = await prisma.newsletter.findMany({
       take: 10,
       select: {
         id: true,
         name: true,
-        sender_email: true,
-        updated_at: true,
+        senderEmail: true,
+        updatedAt: true,
         _count: {
           select: {
-            userNewsletters: true
+            userSubscriptions: true
           }
         }
       },
       orderBy: {
-        userNewsletters: {
+        userSubscriptions: {
           _count: 'desc'
         }
       }
@@ -47,9 +47,9 @@ export async function GET(req: NextRequest) {
     const transformedNewsletters = topNewsletters.map(newsletter => ({
       id: newsletter.id,
       name: newsletter.name,
-      senderEmail: newsletter.sender_email,
-      subscriberCount: newsletter._count.userNewsletters,
-      lastProcessed: newsletter.updated_at.toISOString()
+      senderEmail: newsletter.senderEmail,
+      subscriberCount: newsletter._count.userSubscriptions,
+      lastProcessed: newsletter.updatedAt.toISOString()
     }));
 
     return NextResponse.json(transformedNewsletters);

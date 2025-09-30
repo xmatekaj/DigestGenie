@@ -34,29 +34,29 @@ export async function GET(req: NextRequest) {
       proUsers
     ] = await Promise.all([
       // Total users
-      prisma.users.count(),
+      prisma.user.count(),
       
       // Active users (logged in within last 30 days)
-      prisma.users.count({
+      prisma.user.count({
         where: {
-          is_active: true,
-          last_login: {
+          isVerified: true,
+          updatedAt: {
             gte: lastMonth
           }
         }
       }),
       
       // Banned users (inactive users)
-      prisma.users.count({
+      prisma.user.count({
         where: {
-          is_active: false
+          isVerified: false
         }
       }),
       
       // New users this week
-      prisma.users.count({
+      prisma.user.count({
         where: {
-          created_at: {
+          createdAt: {
             gte: lastWeek
           }
         }

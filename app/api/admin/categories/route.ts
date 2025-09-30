@@ -33,13 +33,13 @@ export async function GET(req: NextRequest) {
     // First, try to fetch from the new categories table
     let categories;
     try {
-      categories = await prisma.categories.findMany({
+      categories = await prisma.userCategory.findMany({
         where: {
-          user_id: null // System categories
+          userId: null // System categories
         },
         orderBy: [
-          { sort_order: 'asc' },
-          { created_at: 'asc' }
+          { sortOrder: 'asc' },
+          { createdAt: 'asc' }
         ]
       });
       console.log(`Found ${categories.length} categories in categories table`);
@@ -65,11 +65,10 @@ export async function GET(req: NextRequest) {
           name: cat.name,
           description: cat.description || '',
           icon: cat.icon || 'Globe',
-          color_gradient: cat.color || 'from-blue-500 to-cyan-500',
-          is_active: true,
-          sort_order: cat.sort_order || 1,
-          user_id: null,
-          created_at: cat.created_at
+          color: cat.color || '#3B82F6',
+          sortOrder: cat.sortOrder || 1,
+          userId: null,
+          createdAt: cat.created_at
         }));
       } catch (error) {
         console.error('Error fetching from user_categories:', error);
@@ -84,9 +83,8 @@ export async function GET(req: NextRequest) {
       description: category.description || '',
       slug: category.name.toLowerCase().replace(/\s+/g, '-'),
       icon: category.icon || 'Globe',
-      colorGradient: category.color_gradient || 'from-blue-500 to-cyan-500',
-      isActive: category.is_active !== false,
-      sortOrder: category.sort_order || 1,
+      color: category.colorGradient || '#3B82F6',
+      sortOrder: category.sortOrder || 1,
       articleCount: 0 // TODO: Calculate actual article count
     }));
 
@@ -123,10 +121,10 @@ export async function POST(req: NextRequest) {
     // Check for duplicate category names
     let duplicateExists = false;
     try {
-      const existingCategory = await prisma.categories.findFirst({
+      const existingCategory = await prisma.userCategory.findFirst({
         where: {
           name: name.trim(),
-          user_id: null
+          userId: null
         }
       });
       duplicateExists = !!existingCategory;
@@ -151,15 +149,14 @@ export async function POST(req: NextRequest) {
     // Try to create in categories table first
     let newCategory;
     try {
-      newCategory = await prisma.categories.create({
+      newCategory = await prisma.userCategory.create({
         data: {
           name: name.trim(),
           description: description?.trim() || '',
           icon: icon || 'Globe',
-          color_gradient: colorGradient || 'from-blue-500 to-cyan-500',
-          is_active: isActive !== false,
-          sort_order: 1,
-          user_id: null
+          color: colorGradient || '#3B82F6',
+          sortOrder: 1,
+          userId: null
         }
       });
     } catch (error) {
@@ -168,7 +165,7 @@ export async function POST(req: NextRequest) {
       try {
         const result = await prisma.$queryRaw`
           INSERT INTO user_categories (name, description, color, icon, sort_order, user_id, created_at)
-          VALUES (${name.trim()}, ${description?.trim() || ''}, ${colorGradient || 'from-blue-500 to-cyan-500'}, ${icon || 'Globe'}, 1, 'system-user', NOW())
+          VALUES (${name.trim()}, ${description?.trim() || ''}, ${colorGradient || '#3B82F6'}, ${icon || 'Globe'}, 1, 'system-user', NOW())
           RETURNING *
         `;
         
@@ -178,11 +175,10 @@ export async function POST(req: NextRequest) {
           name: insertedCategory.name,
           description: insertedCategory.description,
           icon: insertedCategory.icon,
-          color_gradient: insertedCategory.color,
-          is_active: true,
-          sort_order: insertedCategory.sort_order,
-          user_id: null,
-          created_at: insertedCategory.created_at
+          color: insertedCategory.color,
+          sortOrder: insertedCategory.sortOrder,
+          userId: null,
+          createdAt: insertedCategory.created_at
         };
       } catch (fallbackError) {
         console.error('Failed to create category in user_categories:', fallbackError);
@@ -197,9 +193,8 @@ export async function POST(req: NextRequest) {
       description: newCategory.description || '',
       slug: newCategory.name.toLowerCase().replace(/\s+/g, '-'),
       icon: newCategory.icon || 'Globe',
-      colorGradient: newCategory.color_gradient || 'from-blue-500 to-cyan-500',
-      isActive: newCategory.is_active !== false,
-      sortOrder: newCategory.sort_order || 1,
+      color: newCategory.colorGradient || '#3B82F6',
+      sortOrder: newCategory.sortOrder || 1,
       articleCount: 0
     };
 

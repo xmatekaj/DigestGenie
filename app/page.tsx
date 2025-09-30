@@ -15,14 +15,16 @@ async function isAdmin(email: string): Promise<boolean> {
 export default async function LandingPage() {
   const session = await getServerSession(authOptions);
   
+  // Check if user is admin
+  let userIsAdmin = false;
+  
   // If user is logged in, check if they're admin and redirect accordingly
   if (session?.user?.email) {
-    const userIsAdmin = await isAdmin(session.user.email);
+    userIsAdmin = await isAdmin(session.user.email);
     if (userIsAdmin) {
       redirect('/admin');
     }
   }
-
-  // Pass session to client component
-  return <LandingPageClient session={session} />;
+  
+  return <LandingPageClient session={session} isAdmin={userIsAdmin} />;
 }

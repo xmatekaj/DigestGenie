@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     } = body;
 
     // Find or create user
-    const user = await prisma.users.findUnique({
+    const user = await prisma.user.findUnique({
       where: { email: session.user.email },
       include: {
         userPreferences: true
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Find or create newsletter
-    let newsletter = await prisma.newsletters.findFirst({
+    let newsletter = await prisma.newsletter.findFirst({
       where: { 
         OR: [
           { senderEmail: senderEmail },
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!newsletter) {
-      newsletter = await prisma.newsletters.create({
+      newsletter = await prisma.newsletter.create({
         data: {
           name: newsletterName,
           senderEmail: senderEmail,
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     // Process articles if provided
     if (articles && articles.length > 0) {
       for (const article of articles) {
-        await prisma.newsletterArticles.create({
+        await prisma.newsletterArticle.create({
           data: {
             userId: user.id,
             newsletterId: newsletter.id,

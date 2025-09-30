@@ -31,11 +31,11 @@ export async function GET(req: NextRequest) {
     console.log('🔍 Fetching newsletters for admin panel...');
 
     // Fetch all newsletters with subscriber counts
-    const newsletters = await prisma.newsletters.findMany({
+    const newsletters = await prisma.newsletter.findMany({
       include: {
         _count: {
           select: {
-            userNewsletterSubscriptions: {
+            userSubscriptions: {
               where: {
                 isActive: true
               }
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
       frequency: newsletter.frequency || 'weekly',
       isPredefined: newsletter.isPredefined,
       isActive: newsletter.isActive,
-      subscriberCount: newsletter._count.userNewsletterSubscriptions,
+      subscriberCount: newsletter._count.userSubscriptions,
       createdAt: newsletter.createdAt.toISOString(),
       updatedAt: newsletter.updatedAt.toISOString()
     }));
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check for duplicate newsletter names
-    const existingNewsletter = await prisma.newsletters.findFirst({
+    const existingNewsletter = await prisma.newsletter.findFirst({
       where: {
         name: name.trim()
       }
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
     const domain = senderDomain || senderEmail.split('@')[1];
 
     // Create newsletter
-    const newNewsletter = await prisma.newsletters.create({
+    const newNewsletter = await prisma.newsletter.create({
       data: {
         name: name.trim(),
         description: description?.trim() || '',
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
       include: {
         _count: {
           select: {
-            userNewsletterSubscriptions: {
+            userSubscriptions: {
               where: {
                 isActive: true
               }
@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
       frequency: newNewsletter.frequency || 'weekly',
       isPredefined: newNewsletter.isPredefined,
       isActive: newNewsletter.isActive,
-      subscriberCount: newNewsletter._count.userNewsletterSubscriptions,
+      subscriberCount: newNewsletter._count.userSubscriptions,
       createdAt: newNewsletter.createdAt.toISOString(),
       updatedAt: newNewsletter.updatedAt.toISOString()
     };

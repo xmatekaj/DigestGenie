@@ -23,19 +23,19 @@ export async function GET(req: NextRequest) {
     }
 
     // Fetch recent users with their newsletter count
-    const recentUsers = await prisma.users.findMany({
+    const recentUsers = await prisma.user.findMany({
       take: 10,
       orderBy: {
-        created_at: 'desc'
+        createdAt: 'desc'
       },
       select: {
         id: true,
         name: true,
         email: true,
-        created_at: true,
+        createdAt: true,
         _count: {
           select: {
-            userNewsletters: true
+            userNewsletterSubscriptions: true
           }
         }
       }
@@ -46,8 +46,8 @@ export async function GET(req: NextRequest) {
       id: user.id,
       name: user.name,
       email: user.email,
-      createdAt: user.created_at.toISOString(),
-      newsletterCount: user._count.userNewsletters
+      createdAt: user.createdAt.toISOString(),
+      newsletterCount: user._count.userNewsletterSubscriptions
     }));
 
     return NextResponse.json(transformedUsers);

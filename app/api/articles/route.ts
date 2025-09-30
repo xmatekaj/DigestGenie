@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = await prisma.users.findUnique({
+    const user = await prisma.user.findUnique({
       where: { email: session.user.email }
     });
 
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Fetch articles
-    const articles = await prisma.newsletterArticles.findMany({
+    const articles = await prisma.newsletterArticle.findMany({
       where: whereClause,
       include: {
         newsletter: {
@@ -64,7 +64,6 @@ export async function GET(req: NextRequest) {
     const transformedArticles = articles.map(article => ({
       id: article.id,
       subject: article.title,
-      aiGeneratedTitle: article.aiGeneratedTitle,
       aiSummary: article.aiSummary,
       content: article.content,
       newsletter: {

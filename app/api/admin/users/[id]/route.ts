@@ -27,7 +27,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const { action } = await req.json();
 
     // Check if user exists
-    const user = await prisma.users.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: userId }
     });
 
@@ -42,26 +42,25 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     switch (action) {
       case 'activate':
-        await prisma.users.update({
+        await prisma.user.update({
           where: { id: userId },
-          data: { is_active: true }
+          data: { isVerified: true }
         });
         break;
         
       case 'deactivate':
       case 'ban':
-        await prisma.users.update({
+        await prisma.user.update({
           where: { id: userId },
-          data: { is_active: false }
+          data: { isVerified: false }
         });
         break;
         
       case 'delete':
         // Soft delete - you might want to implement hard delete or data cleanup
-        await prisma.users.update({
+        await prisma.user.update({
           where: { id: userId },
           data: { 
-            is_active: false,
             email: `deleted_${userId}@deleted.com`,
             name: 'Deleted User'
           }
@@ -91,7 +90,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     const userId = params.id;
 
     // Check if user exists
-    const user = await prisma.users.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: userId }
     });
 
@@ -107,15 +106,15 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     // Delete user and related data
     await prisma.$transaction([
       // Delete user newsletters
-      prisma.userNewsletters.deleteMany({
-        where: { user_id: userId }
+      prisma.userNewsletterSubscription.deleteMany({
+        where: { userId: userId }
       }),
       // Delete user categories
-      prisma.categories.deleteMany({
-        where: { user_id: userId }
+      prisma.userCategory.deleteMany({
+        where: { userId: userId }
       }),
       // Delete user
-      prisma.users.delete({
+      prisma.user.delete({
         where: { id: userId }
       })
     ]);

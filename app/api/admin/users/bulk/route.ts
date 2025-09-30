@@ -30,7 +30,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     // Get current admin user to prevent self-action
-    const adminUser = await prisma.users.findUnique({
+    const adminUser = await prisma.user.findUnique({
       where: { email: session.user.email }
     });
 
@@ -43,39 +43,38 @@ export async function PATCH(req: NextRequest) {
 
     switch (action) {
       case 'activate':
-        await prisma.users.updateMany({
+        await prisma.user.updateMany({
           where: { 
             id: { in: filteredUserIds }
           },
-          data: { is_active: true }
+          data: { isVerified: true }
         });
         break;
         
       case 'deactivate':
       case 'ban':
-        await prisma.users.updateMany({
+        await prisma.user.updateMany({
           where: { 
             id: { in: filteredUserIds }
           },
-          data: { is_active: false }
+          data: { isVerified: false }
         });
         break;
         
       case 'delete':
         // Soft delete for bulk operations
-        await prisma.users.updateMany({
+        await prisma.user.updateMany({
           where: { 
             id: { in: filteredUserIds }
           },
           data: { 
-            is_active: false,
             name: 'Deleted User'
           }
         });
         
         // Update emails to prevent conflicts
         for (const userId of filteredUserIds) {
-          await prisma.users.update({
+          await prisma.user.update({
             where: { id: userId },
             data: { email: `deleted_${userId}@deleted.com` }
           });
