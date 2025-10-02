@@ -1,94 +1,62 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database on port 5433
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: digestgenie-web-local
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:digestgenie2024@postgres:5432/digestgenie_dev
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=digestgenie-local-secret-key-2024
+      - NODE_ENV=development
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - digestgenie-local
+
   postgres:
     image: postgres:15-alpine
-    container_name: digestgenie_postgres
+    container_name: digestgenie-postgres-local
     environment:
-      POSTGRES_DB: digestgenie_dev
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: digestgenie2024
-      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      POSTGRES_DB: digestgenie_dev
     ports:
-      - "5433:5432"  # Host port 5433 maps to container port 5432
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - "5433:5432"
+    volumes:
+      - postgres_data_local:/var/lib/postgresql/data
+    networks:
+      - digestgenie-local
 
-  # Redis for caching and job queues
   redis:
     image: redis:7-alpine
-    container_name: digestgenie_redis
+    container_name: digestgenie-redis-local
     ports:
       - "6379:6379"
-    volumes:
-      - redis_data:/data
-    restart: unless-stopped
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
+    networks:
+      - digestgenie-local
 
-  # n8n Workflow Automation
   n8n:
     image: n8nio/n8n:latest
-    container_name: digestgenie_n8n
+    container_name: digestgenie-n8n-local
     ports:
       - "5678:5678"
     environment:
-      DB_TYPE: postgresdb
-      DB_POSTGRESDB_HOST: postgres
-      DB_POSTGRESDB_PORT: 5432
-      DB_POSTGRESDB_DATABASE: n8n_dev
-      DB_POSTGRESDB_USER: postgres
-      DB_POSTGRESDB_PASSWORD: digestgenie2024
-      N8N_ENCRYPTION_KEY: digestgenie-n8n-encryption-key-2024
-      WEBHOOK_URL: http://localhost:5678
-      GENERIC_TIMEZONE: UTC
-      N8N_SECURE_COOKIE: false
-      N8N_HOST: 0.0.0.0
-      N8N_PORT: 5678
-      N8N_PROTOCOL: http
-      NODE_ENV: development
-    depends_on:
-      postgres:
-        condition: service_healthy
+      - N8N_ENCRYPTION_KEY=digestgenie-n8n-local-key
     volumes:
-      - n8n_data:/home/node/.n8n
-      - ./n8n/workflows:/tmp/workflows:ro
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:5678/healthz || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # MailHog for email testing (replaces Postal for local dev)
-  mailhog:
-    image: mailhog/mailhog:latest
-    container_name: digestgenie_mailhog
-    ports:
-      - "1025:1025"  # SMTP server
-      - "8025:8025"  # Web UI
-    restart: unless-stopped
+      - n8n_data_local:/home/node/.n8n
+    networks:
+      - digestgenie-local
 
 volumes:
-  postgres_data:
-    driver: local
-  redis_data:
-    driver: local
-  n8n_data:
-    driver: local
+  postgres_data_local:
+  n8n_data_local:
 
 networks:
-  default:
-    name: digestgenie_network
+  digestgenie-local:
     driver: bridge
