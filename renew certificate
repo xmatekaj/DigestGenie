@@ -1,0 +1,35 @@
+The renewal test failed because nginx is using port 80. This is expected. For automatic renewals, certbot needs to use a different method. Fix it:
+
+# Stop the renewal test (it already failed)
+# Configure certbot to use webroot method instead of standalone
+
+# Create webroot directory
+sudo mkdir -p /var/www/letsencrypt
+
+
+That will likely fail too because nginx isn't configured for webroot. Better solution - use a renewal hook that stops nginx temporarily:
+
+# Update the renewal config to stop nginx during renewal
+sudo bash -c 'cat > /etc/letsencrypt/renewal-hooks/pre/stop-nginx.sh << "EOF"
+#!/bin/bash
+cd /home/ubuntu/dev/DigestGenie
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml stop nginx
+EOF'
+
+sudo bash -c 'cat > /etc/letsencrypt/renewal-hooks/post/start-nginx.sh << "EOF"
+#!/bin/bash
+cd /home/ubuntu/dev/DigestGenie
+cp /etc/letsencrypt/live/57.129.47.114.nip.io/fullchain.pem /home/ubuntu/dev/DigestGenie/nginx/ssl/
+cp /etc/letsencrypt/live/57.129.47.114.nip.io/privkey.pem /home/ubuntu/dev/DigestGenie/nginx/ssl/
+chown ubuntu:ubuntu /home/ubuntu/dev/DigestGenie/nginx/ssl/*.pem
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml start nginx
+EOF'
+
+sudo chmod +x /etc/letsencrypt/renewal-hooks/pre/stop-nginx.sh
+sudo chmod +x /etc/letsencrypt/renewal-hooks/post/start-nginx.sh
+
+# Remove the old deploy hook
+sudo rm /etc/letsencrypt/renewal-hooks/deploy/copy-to-nginx.sh
+
+# Test renewal again
+sudo certbot renew --dry-run
