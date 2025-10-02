@@ -46,3 +46,12 @@ for dir in "${DIRS_TO_CLEAN[@]}"; do
 done
 
 echo "✅ Cleanup complete!"
+
+# Remove numbered junk files
+echo "Removing numbered junk files..."
+for file in 159 31 51; do
+  if [ -f "$file" ]; then
+    echo "Removing: $file"
+    rm "$file"
+  fi
+done
