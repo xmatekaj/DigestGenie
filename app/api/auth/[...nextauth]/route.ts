@@ -1,4 +1,4 @@
-// app/api/auth/[...nextauth]/route.ts - Updated with basePath support
+// app/api/auth/[...nextauth]/route.ts - Fixed with proper basePath cookie handling
 import NextAuth, { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import { prisma } from '@/lib/prisma'
@@ -24,13 +24,8 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   
-  basePath: `${basePath}/api/auth`,
-  
   callbacks: {
     async signIn({ user, account, profile }) {
-      console.log('=== SIGNIN CALLBACK ===')
-      console.log('Account scopes:', account?.scope)
-      
       if (account && profile) {
         try {
           const existingUser = await prisma.user.findUnique({
@@ -50,9 +45,7 @@ export const authOptions: NextAuthOptions = {
           } else {
             await prisma.user.update({
               where: { email: profile.email! },
-              data: {
-                updatedAt: new Date()
-              }
+              data: { updatedAt: new Date() }
             })
           }
         } catch (error) {
@@ -60,13 +53,10 @@ export const authOptions: NextAuthOptions = {
           return false
         }
       }
-      
       return true
     },
     
-    async jwt({ token, account, profile, user }) {
-      console.log('=== JWT CALLBACK ===')
-      
+    async jwt({ token, account, profile }) {
       if (account && profile) {
         token.accessToken = account.access_token
         token.refreshToken = account.refresh_token
@@ -76,33 +66,24 @@ export const authOptions: NextAuthOptions = {
         token.name = profile.name
         token.picture = (profile as any).picture
         token.scope = account.scope
-        console.log('Granted scopes:', account.scope)
       }
-      
       return token
     },
     
     async session({ session, token }) {
-      console.log('=== SESSION CALLBACK ===')
-      
       if (token) {
         session.user = {
           email: token.email!,
           name: token.name!,
         }
       }
-      
       return session
     },
     
     async redirect({ url, baseUrl }) {
-      console.log('=== REDIRECT CALLBACK ===')
-      console.log('URL:', url)
-      console.log('Base URL:', baseUrl)
-      
-      const redirectUrl = `${baseUrl}${basePath}/dashboard`
-      console.log('Redirecting to:', redirectUrl)
-      return redirectUrl
+      if (url.startsWith('/')) return `${baseUrl}${url}`
+      if (url.startsWith(baseUrl)) return url
+      return `${baseUrl}${basePath}/dashboard`
     }
   },
   
@@ -118,35 +99,36 @@ export const authOptions: NextAuthOptions = {
   
   cookies: {
     sessionToken: {
-      name: `${basePath ? 'digestgenie.' : ''}next-auth.session-token`,
+      name: basePath ? `__Secure-next-auth.session-token` : `next-auth.session-token`,
       options: {
         httpOnly: true,
         sameSite: 'lax',
         path: basePath || '/',
-        secure: process.env.NODE_ENV === 'production'
+        secure: true
       }
     },
     callbackUrl: {
-      name: `${basePath ? 'digestgenie.' : ''}next-auth.callback-url`,
-      options: {
-        sameSite: 'lax',
-        path: basePath || '/',
-        secure: process.env.NODE_ENV === 'production'
-      }
-    },
-    csrfToken: {
-      name: `${basePath ? 'digestgenie.' : ''}next-auth.csrf-token`,
+      name: basePath ? `__Host-next-auth.callback-url` : `next-auth.callback-url`,
       options: {
         httpOnly: true,
         sameSite: 'lax',
         path: basePath || '/',
-        secure: process.env.NODE_ENV === 'production'
+        secure: true
+      }
+    },
+    csrfToken: {
+      name: basePath ? `__Host-next-auth.csrf-token` : `next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: basePath || '/',
+        secure: true
       }
     }
   },
   
   secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === 'development',
+  debug: true,
 }
 
 const handler = NextAuth(authOptions)
