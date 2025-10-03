@@ -1,9 +1,6 @@
-// app/api/auth/[...nextauth]/route.ts - Fixed with proper basePath cookie handling
 import NextAuth, { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import { prisma } from '@/lib/prisma'
-
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -12,13 +9,7 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: [
-            'openid',
-            'email', 
-            'profile',
-            'https://www.googleapis.com/auth/gmail.readonly',
-            'https://www.googleapis.com/auth/gmail.metadata'
-          ].join(' ')
+          scope: 'openid email profile'
         }
       }
     })
@@ -49,7 +40,7 @@ export const authOptions: NextAuthOptions = {
             })
           }
         } catch (error) {
-          console.error('Database error during sign in:', error)
+          console.error('Database error:', error)
           return false
         }
       }
@@ -58,14 +49,9 @@ export const authOptions: NextAuthOptions = {
     
     async jwt({ token, account, profile }) {
       if (account && profile) {
-        token.accessToken = account.access_token
-        token.refreshToken = account.refresh_token
-        token.tokenExpiry = account.expires_at
         token.sub = account.providerAccountId
         token.email = profile.email
         token.name = profile.name
-        token.picture = (profile as any).picture
-        token.scope = account.scope
       }
       return token
     },
@@ -78,18 +64,12 @@ export const authOptions: NextAuthOptions = {
         }
       }
       return session
-    },
-    
-    async redirect({ url, baseUrl }) {
-      if (url.startsWith('/')) return `${baseUrl}${url}`
-      if (url.startsWith(baseUrl)) return url
-      return `${baseUrl}${basePath}/dashboard`
     }
   },
   
   pages: {
-    signIn: `${basePath}/auth/signin`,
-    error: `${basePath}/auth/error`,
+    signIn: '/auth/signin',
+    error: '/auth/error',
   },
   
   session: {
@@ -97,38 +77,7 @@ export const authOptions: NextAuthOptions = {
     maxAge: 24 * 60 * 60,
   },
   
-  cookies: {
-    sessionToken: {
-      name: basePath ? `__Secure-next-auth.session-token` : `next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: basePath || '/',
-        secure: true
-      }
-    },
-    callbackUrl: {
-      name: basePath ? `__Host-next-auth.callback-url` : `next-auth.callback-url`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: basePath || '/',
-        secure: true
-      }
-    },
-    csrfToken: {
-      name: basePath ? `__Host-next-auth.csrf-token` : `next-auth.csrf-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: basePath || '/',
-        secure: true
-      }
-    }
-  },
-  
   secret: process.env.NEXTAUTH_SECRET,
-  debug: true,
 }
 
 const handler = NextAuth(authOptions)

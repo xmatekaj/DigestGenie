@@ -7,7 +7,8 @@ import LandingPageClient from '@/components/landing-page-client';
 async function isAdmin(email: string): Promise<boolean> {
   const adminEmails = process.env.ADMIN_EMAILS?.split(',').map(e => e.trim()) || [
     'admin@digestgenie.com',
-    'matekaj@proton.me'
+    'matekaj@proton.me',
+    'xmatekaj@gmail.com'
   ];
   return adminEmails.includes(email);
 }
