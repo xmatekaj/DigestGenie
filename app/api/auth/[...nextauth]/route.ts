@@ -2,6 +2,12 @@ import NextAuth, { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import { prisma } from '@/lib/prisma'
 
+const adminEmails = process.env.ADMIN_EMAILS?.split(',').map(e => e.trim()) || [
+  'admin@digestgenie.com',
+  'matekaj@proton.me',
+  'xmatekaj@gmail.com'
+];
+
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
@@ -57,13 +63,25 @@ export const authOptions: NextAuthOptions = {
     },
     
     async session({ session, token }) {
-      if (token) {
-        session.user = {
-          email: token.email!,
-          name: token.name!,
-        }
+      if (token && session.user) {
+        session.user.email = token.email as string
+        session.user.name = token.name as string
       }
       return session
+    },
+    
+    async redirect({ url, baseUrl }) {
+      // After sign in, check if user is admin
+      if (url === `${baseUrl}/dashboard` || url === baseUrl || url === `${baseUrl}/`) {
+        // This will be further handled by middleware
+        return `${baseUrl}/dashboard`;
+      }
+      
+      // Allow callback URLs
+      if (url.startsWith(baseUrl)) return url;
+      if (url.startsWith('/')) return `${baseUrl}${url}`;
+      
+      return baseUrl;
     }
   },
   

@@ -1,65 +1,47 @@
-import type { Metadata } from 'next'
-import { Inter, Poppins } from 'next/font/google'
-import './globals.css'
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
-const inter = Inter({ 
-  subsets: ['latin'],
-  variable: '--font-inter',
-})
+const adminEmails = process.env.ADMIN_EMAILS?.split(",").map(email => email.trim()) || [];
 
-const poppins = Poppins({
-  weight: ['300', '400', '500', '600', '700', '800'],
-  subsets: ['latin'],
-  variable: '--font-poppins',
-})
-
-export const metadata: Metadata = {
-  title: {
-    default: 'DigestGenie - Your AI Newsletter Genie',
-    template: '%s | DigestGenie'
-  },
-  description: 'Organize, summarize, and simplify your newsletters with AI magic. DigestGenie grants three wishes: automatic organization, instant summaries, and time savings.',
-  keywords: [
-    'newsletter',
-    'ai',
-    'email organization', 
-    'digest',
-    'summarization',
-    'productivity',
-    'inbox management',
-    'newsletter aggregator'
-  ],
-  authors: [{ name: 'DigestGenie Team' }],
-  creator: 'DigestGenie',
-  robots: {
-    index: true,
-    follow: true,
-  },
-  icons: {
-    icon: '/favicon.ico',
-  },
-  openGraph: {
-    type: 'website',
-    locale: 'en_US',
-    url: 'https://digestgenie.com',
-    siteName: 'DigestGenie',
-    title: 'DigestGenie - Your AI Newsletter Genie',
-    description: 'Organize, summarize, and simplify your newsletters with AI magic.',
-  },
-}
-
-export default function RootLayout({
+export default async function AdminLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
+  const session = await getServerSession(authOptions);
+
+  // Check if user is authenticated
+  if (!session) {
+    redirect("/auth/signin");
+  }
+
+  // Check if user is admin
+  const isAdmin = session.user?.email && adminEmails.includes(session.user.email);
+  
+  if (!isAdmin) {
+    redirect("/dashboard");
+  }
+
   return (
-    <html lang="en" className={`${inter.variable} ${poppins.variable}`}>
-      <body className={inter.className}>
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-          {children}
+    <div className="min-h-screen bg-gray-100">
+      <nav className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex">
+              <div className="flex-shrink-0 flex items-center">
+                <h1 className="text-xl font-bold">Admin Panel</h1>
+              </div>
+            </div>
+            <div className="flex items-center">
+              <span className="text-sm text-gray-700">{session.user?.email}</span>
+            </div>
+          </div>
         </div>
-      </body>
-    </html>
-  )
+      </nav>
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        {children}
+      </main>
+    </div>
+  );
 }
