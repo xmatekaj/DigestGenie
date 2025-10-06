@@ -22,20 +22,13 @@ export default withAuth(
     // Check if user is admin
     const isAdmin = userEmail && adminEmails.includes(userEmail);
     
-    // ALWAYS log for debugging
-    console.log('======================================');
-    console.log('[Middleware] Path:', path);
-    console.log('[Middleware] Token exists:', !!token);
-    console.log('[Middleware] Token email (raw):', token?.email);
-    console.log('[Middleware] User email (normalized):', userEmail);
-    console.log('[Middleware] Admin emails array:', adminEmails);
-    console.log('[Middleware] Is Admin?:', isAdmin);
-    console.log('======================================');
-    
-    // Redirect admins from /dashboard to /admin
-    if (isAdmin && path === '/dashboard') {
-      console.log('[Middleware] ✅ Redirecting admin from /dashboard to /admin');
-      return NextResponse.redirect(new URL('/admin', req.url));
+    // Log for debugging (only in development)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('======================================');
+      console.log('[Middleware] Path:', path);
+      console.log('[Middleware] User email:', userEmail);
+      console.log('[Middleware] Is Admin?:', isAdmin);
+      console.log('======================================');
     }
     
     // Block non-admins from /admin routes
@@ -44,8 +37,8 @@ export default withAuth(
       return NextResponse.redirect(new URL('/dashboard', req.url));
     }
     
-    // Allow access
-    console.log('[Middleware] ✅ Allowing access to', path);
+    // Allow admins to access both /admin and /dashboard
+    // No redirect - let them choose where they want to go
     return NextResponse.next();
   },
   {
