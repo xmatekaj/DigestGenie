@@ -1,6 +1,5 @@
 'use client';
 
-import { redirect } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
@@ -16,6 +15,8 @@ import {
   User
 } from 'lucide-react';
 
+const adminEmails = ['admin@digestgenie.com', 'matekaj@proton.me', 'xmatekaj@gmail.com'];
+
 export default function AdminLayout({
   children,
 }: {
@@ -23,19 +24,53 @@ export default function AdminLayout({
 }) {
   const { data: session, status } = useSession();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      redirect('/auth/signin');
+    // Check admin status
+    if (status === 'authenticated' && session?.user?.email) {
+      const userIsAdmin = adminEmails.includes(session.user.email);
+      setIsAdmin(userIsAdmin);
+      setIsChecking(false);
+      
+      console.log('[Admin Layout] User email:', session.user.email);
+      console.log('[Admin Layout] Is admin:', userIsAdmin);
+    } else if (status === 'unauthenticated') {
+      setIsChecking(false);
     }
-    
-    const adminEmails = ['admin@digestgenie.com', 'matekaj@proton.me', 'xmatekaj@gmail.com'];
-    setIsAdmin(session?.user?.email ? adminEmails.includes(session.user.email) : false);
   }, [session, status]);
 
-  if (!isAdmin && status === 'authenticated') {
-    redirect('/dashboard');
+  // Show loading while checking authentication and admin status
+  if (status === 'loading' || isChecking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading admin panel...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // The middleware handles redirects, so we don't need to redirect here
+  // Just show an error message if somehow a non-admin got through
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
+          <p className="text-gray-600 mb-4">You don't have permission to access the admin panel.</p>
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Go to Dashboard
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (

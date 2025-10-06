@@ -1,7 +1,6 @@
-// app/page.tsx - Alternative server-side approach (more reliable)
+// app/page.tsx - Landing page without automatic redirects
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { redirect } from 'next/navigation';
 import LandingPageClient from '@/components/landing-page-client';
 
 async function isAdmin(email: string): Promise<boolean> {
@@ -16,16 +15,14 @@ async function isAdmin(email: string): Promise<boolean> {
 export default async function LandingPage() {
   const session = await getServerSession(authOptions);
   
-  // Check if user is admin
+  // Check if user is admin (but don't redirect - let them see the landing page)
   let userIsAdmin = false;
   
-  // If user is logged in, check if they're admin and redirect accordingly
   if (session?.user?.email) {
     userIsAdmin = await isAdmin(session.user.email);
-    if (userIsAdmin) {
-      redirect('/admin');
-    }
   }
   
+  // Pass session and admin status to client component
+  // Let the user navigate to dashboard/admin via the UI
   return <LandingPageClient session={session} isAdmin={userIsAdmin} />;
 }
