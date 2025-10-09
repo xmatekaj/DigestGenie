@@ -1,204 +1,230 @@
-// app/api/newsletters/[id]/subscribe/route.ts - Newsletter subscription management
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth/next'
-import { prisma } from '@/lib/prisma'
+// app/api/newsletters/[id]/subscribe/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { PrismaClient } from '@prisma/client';
 
-interface RouteParams {
-  params: {
-    id: string
-  }
-}
+const prisma = new PrismaClient();
 
-export async function POST(request: NextRequest, { params }: RouteParams) {
-  const session = await getServerSession()
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+// Subscribe to newsletter
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    })
+      where: { email: session.user.email },
+      include: {
+        userSubscription: {
+          include: {
+            plan: true,
+          },
+        },
+        userNewsletterSubscriptions: {
+          where: { isActive: true },
+        },
+      },
+    });
 
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const newsletterId = params.id
-    const body = await request.json()
-    const { 
-      customCategory, 
-      aiEnabled = true, 
-      aiSummaryEnabled = true,
-      aiCategorizationEnabled = true,
-      aiInterestFiltering = false,
-      displayPreference = { type: 'full', showImages: true }
-    } = body
+    const newsletterId = params.id;
 
-    // Check if newsletter exists
+    // Check newsletter exists
     const newsletter = await prisma.newsletter.findUnique({
-      where: { id: newsletterId, isActive: true }
-    })
+      where: { id: newsletterId },
+    });
 
     if (!newsletter) {
-      return NextResponse.json({ error: 'Newsletter not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Newsletter not found' }, { status: 404 });
     }
 
-    // Check subscription limits for free users
-    const userSubscription = await prisma.userSubscription.findUnique({
-      where: { userId: user.id },
-      include: { plan: true }
-    })
+    // Check subscription limits
+    const maxNewsletters = user.userSubscription?.plan.maxNewsletters || 3;
+    const currentSubscriptions = user.userNewsletterSubscriptions.length;
 
-    const currentSubscriptionCount = await prisma.userNewsletterSubscription.count({
-      where: { userId: user.id, isActive: true }
-    })
-
-    const maxNewsletters = userSubscription?.plan?.maxNewsletters || 3
-    
-    if (maxNewsletters !== -1 && currentSubscriptionCount >= maxNewsletters) {
-      return NextResponse.json({ 
-        error: 'Subscription limit reached. Upgrade your plan to subscribe to more newsletters.' 
-      }, { status: 403 })
+    if (currentSubscriptions >= maxNewsletters) {
+      return NextResponse.json(
+        { 
+          error: `You have reached your limit of ${maxNewsletters} newsletters. Upgrade to subscribe to more.`,
+          upgrade: true,
+        },
+        { status: 403 }
+      );
     }
+
+    // Get subscription preferences from request body
+    const body = await request.json();
+    const {
+      aiEnabled = true,
+      aiSummaryEnabled = true,
+      aiCategorizationEnabled = true,
+      displayPreference = { type: 'cards', showImages: true },
+    } = body;
 
     // Create or update subscription
     const subscription = await prisma.userNewsletterSubscription.upsert({
       where: {
         userId_newsletterId: {
           userId: user.id,
-          newsletterId
-        }
+          newsletterId: newsletterId,
+        },
       },
       create: {
         userId: user.id,
-        newsletterId,
-        customCategory,
+        newsletterId: newsletterId,
+        isActive: true,
         aiEnabled,
         aiSummaryEnabled,
         aiCategorizationEnabled,
-        aiInterestFiltering,
         displayPreference,
-        isActive: true
       },
       update: {
-        customCategory,
+        isActive: true,
         aiEnabled,
         aiSummaryEnabled,
         aiCategorizationEnabled,
-        aiInterestFiltering,
         displayPreference,
-        isActive: true,
-        updatedAt: new Date()
       },
-      include: {
-        newsletter: true
-      }
-    })
+    });
 
-    // Generate system email if user doesn't have one
-    if (!user.systemEmail) {
-      const systemEmail = `user${user.id.slice(0, 8)}@newsletters.yourdomain.com`
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { systemEmail }
-      })
+    // Update newsletter subscriber count
+    await prisma.newsletter.update({
+      where: { id: newsletterId },
+      data: {
+        subscriberCount: {
+          increment: 1,
+        },
+      },
+    });
 
-      // Create email processing record
-      await prisma.emailProcessing.create({
+    // Update user subscription count
+    if (user.userSubscription) {
+      await prisma.userSubscription.update({
+        where: { id: user.userSubscription.id },
         data: {
-          userId: user.id,
-          emailAddress: systemEmail,
-          processingStatus: 'active'
-        }
-      })
+          newslettersCount: {
+            increment: 1,
+          },
+        },
+      });
     }
 
-    return NextResponse.json({ subscription }, { status: 201 })
+    // Create usage event
+    await prisma.usageEvent.create({
+      data: {
+        userId: user.id,
+        eventType: 'newsletter_subscribed',
+        eventData: { newsletterId, newsletterName: newsletter.name },
+        quotaConsumed: 0,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Subscribed successfully',
+      subscription,
+    });
   } catch (error) {
-    console.error('Error subscribing to newsletter:', error)
-    return NextResponse.json({ error: 'Failed to subscribe to newsletter' }, { status: 500 })
+    console.error('Error subscribing to newsletter:', error);
+    return NextResponse.json(
+      { error: 'Failed to subscribe' },
+      { status: 500 }
+    );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  const session = await getServerSession()
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+// Unsubscribe from newsletter
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const newsletterId = params.id
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
 
-    // Deactivate subscription instead of deleting (to preserve history)
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    const newsletterId = params.id;
+
+    // Deactivate subscription
     const subscription = await prisma.userNewsletterSubscription.updateMany({
       where: {
         userId: user.id,
-        newsletterId,
-        isActive: true
+        newsletterId: newsletterId,
       },
       data: {
         isActive: false,
-        updatedAt: new Date()
-      }
-    })
+      },
+    });
 
     if (subscription.count === 0) {
-      return NextResponse.json({ error: 'Subscription not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Subscription not found' },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json({ message: 'Unsubscribed successfully' })
-  } catch (error) {
-    console.error('Error unsubscribing from newsletter:', error)
-    return NextResponse.json({ error: 'Failed to unsubscribe from newsletter' }, { status: 500 })
-  }
-}
-
-export async function PUT(request: NextRequest, { params }: RouteParams) {
-  const session = await getServerSession()
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  try {
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
-
-    const newsletterId = params.id
-    const body = await request.json()
-    
-    const subscription = await prisma.userNewsletterSubscription.update({
-      where: {
-        userId_newsletterId: {
-          userId: user.id,
-          newsletterId
-        }
-      },
+    // Update newsletter subscriber count
+    await prisma.newsletter.update({
+      where: { id: newsletterId },
       data: {
-        ...body,
-        updatedAt: new Date()
+        subscriberCount: {
+          decrement: 1,
+        },
       },
-      include: {
-        newsletter: true
-      }
-    })
+    });
 
-    return NextResponse.json({ subscription })
+    // Update user subscription count
+    await prisma.userSubscription.updateMany({
+      where: { userId: user.id },
+      data: {
+        newslettersCount: {
+          decrement: 1,
+        },
+      },
+    });
+
+    // Create usage event
+    await prisma.usageEvent.create({
+      data: {
+        userId: user.id,
+        eventType: 'newsletter_unsubscribed',
+        eventData: { newsletterId },
+        quotaConsumed: 0,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Unsubscribed successfully',
+    });
   } catch (error) {
-    console.error('Error updating subscription:', error)
-    return NextResponse.json({ error: 'Failed to update subscription' }, { status: 500 })
+    console.error('Error unsubscribing from newsletter:', error);
+    return NextResponse.json(
+      { error: 'Failed to unsubscribe' },
+      { status: 500 }
+    );
+  } finally {
+    await prisma.$disconnect();
   }
 }

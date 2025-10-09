@@ -1,0 +1,154 @@
+// app/api/articles/[id]/save/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+// Save article
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    const articleId = params.id;
+
+    // Check if article exists and belongs to user
+    const article = await prisma.newsletterArticle.findFirst({
+      where: {
+        id: articleId,
+        userId: user.id,
+      },
+    });
+
+    if (!article) {
+      return NextResponse.json({ error: 'Article not found' }, { status: 404 });
+    }
+
+    // Update article
+    await prisma.newsletterArticle.update({
+      where: { id: articleId },
+      data: {
+        isSaved: true,
+        savedAt: new Date(),
+      },
+    });
+
+    // Create saved article entry
+    await prisma.savedArticle.upsert({
+      where: {
+        userId_articleId: {
+          userId: user.id,
+          articleId: articleId,
+        },
+      },
+      create: {
+        userId: user.id,
+        articleId: articleId,
+        tags: [],
+      },
+      update: {
+        savedAt: new Date(),
+      },
+    });
+
+    // Update subscription usage
+    await prisma.userSubscription.updateMany({
+      where: { userId: user.id },
+      data: {
+        savedArticlesCount: {
+          increment: 1,
+        },
+      },
+    });
+
+    return NextResponse.json({ success: true, message: 'Article saved' });
+  } catch (error) {
+    console.error('Error saving article:', error);
+    return NextResponse.json(
+      { error: 'Failed to save article' },
+      { status: 500 }
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+// Unsave article
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    const articleId = params.id;
+
+    // Update article
+    await prisma.newsletterArticle.updateMany({
+      where: {
+        id: articleId,
+        userId: user.id,
+      },
+      data: {
+        isSaved: false,
+        savedAt: null,
+      },
+    });
+
+    // Delete saved article entry
+    await prisma.savedArticle.deleteMany({
+      where: {
+        userId: user.id,
+        articleId: articleId,
+      },
+    });
+
+    // Update subscription usage
+    await prisma.userSubscription.updateMany({
+      where: { userId: user.id },
+      data: {
+        savedArticlesCount: {
+          decrement: 1,
+        },
+      },
+    });
+
+    return NextResponse.json({ success: true, message: 'Article unsaved' });
+  } catch (error) {
+    console.error('Error unsaving article:', error);
+    return NextResponse.json(
+      { error: 'Failed to unsave article' },
+      { status: 500 }
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
+}
