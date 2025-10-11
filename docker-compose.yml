@@ -22,18 +22,29 @@ services:
     container_name: digestgenie-web
     env_file:
       - .env
+    ports:
+      - "3000:3000"
     depends_on:
       - postgres
       - redis
     networks:
       - digestgenie-network
     restart: unless-stopped
+    # Optional: Add healthcheck
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   postgres:
     image: postgres:15-alpine
     container_name: digestgenie-postgres
-    env_file:
-      - .env
+    environment:
+      POSTGRES_DB: digestgenie_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: digestgenie2024
     ports:
       - "5433:5432"
     volumes:
@@ -41,6 +52,11 @@ services:
     networks:
       - digestgenie-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -48,12 +64,20 @@ services:
     networks:
       - digestgenie-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   n8n:
     image: n8nio/n8n:latest
     container_name: digestgenie-n8n
-    env_file:
-      - .env
+    environment:
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - WEBHOOK_URL=http://web:3000/api/webhooks/email
+    ports:
+      - "5678:5678"
     volumes:
       - n8n_data:/home/node/.n8n
     networks:
