@@ -10,6 +10,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============================================================================
+// AUTHENTICATION & USER MANAGEMENT
+// ============================================================================
+
 // User model (core authentication)
 model User {
   id            String    @id @default(cuid())
@@ -19,38 +23,97 @@ model User {
   passwordHash  String?   @map("password_hash")
   systemEmail   String?   @unique @map("system_email")
   isVerified    Boolean   @default(false) @map("is_verified")
+  emailVerified DateTime? @map("emailVerified")
+  image         String?
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  user2fa                     User2fa[]
-  emailProcessing             EmailProcessing[]
-  userNewsletterSubscriptions UserNewsletterSubscription[]
-  newsletterArticles          NewsletterArticle[]
-  userCategories              UserCategory[]
+  accounts                      Account[]
+  sessions                      Session[]
+  user2fa                       User2fa[]
+  emailProcessing               EmailProcessing[]
+  userNewsletterSubscriptions   UserNewsletterSubscription[]
+  newsletterArticles            NewsletterArticle[]
+  userCategories                UserCategory[]
   newsletterCategoryAssignments NewsletterCategoryAssignment[]
-  userPreferences             UserPreferences?
-  userSubscription            UserSubscription?
-  usageEvents                 UsageEvent[]
-  createdNewsletters          Newsletter[] @relation("CreatedBy")
-  rawEmails RawEmail[]
+  userPreferences               UserPreferences?
+  userSubscription              UserSubscription?
+  usageEvents                   UsageEvent[]
+  createdNewsletters            Newsletter[] @relation("CreatedBy")
+  rawEmails                     RawEmail[]
+  savedArticles                 SavedArticle[]
+  articleViews                  ArticleView[]
+  feedFilters                   FeedFilter[]
 
   @@map("users")
 }
 
+// NextAuth Account model for OAuth providers
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+// NextAuth Session model
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// NextAuth Verification Token model
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
 // 2FA Implementation
 model User2fa {
-  id          String    @id @default(cuid())
-  userId      String    @map("user_id")
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
   secret      String
-  isEnabled   Boolean   @default(false) @map("is_enabled")
-  backupCodes String[]  @map("backup_codes")
-  createdAt   DateTime  @default(now()) @map("created_at")
+  isEnabled   Boolean  @default(false) @map("is_enabled")
+  backupCodes String[] @map("backup_codes")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_2fa")
 }
+
+// ============================================================================
+// NEWSLETTER & CONTENT MANAGEMENT
+// ============================================================================
 
 // Newsletter Sources
 model Newsletter {
@@ -64,82 +127,171 @@ model Newsletter {
   frequency    String?
   isPredefined Boolean  @default(false) @map("is_predefined")
   isActive     Boolean  @default(true) @map("is_active")
+  category     String?  // e.g., "tech", "business", "design"
+  tags         String[] // Searchable tags
+  subscriberCount Int   @default(0) @map("subscriber_count")
   createdBy    String?  @map("created_by")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relations
-  userSubscriptions UserNewsletterSubscription[]
-  articles         NewsletterArticle[]
+  userSubscriptions   UserNewsletterSubscription[]
+  articles            NewsletterArticle[]
   categoryAssignments NewsletterCategoryAssignment[]
-  creator          User? @relation("CreatedBy", fields: [createdBy], references: [id])
+  creator             User? @relation("CreatedBy", fields: [createdBy], references: [id])
 
+  @@index([senderEmail])
+  @@index([senderDomain])
+  @@index([isPredefined])
   @@map("newsletters")
 }
 
-// User Newsletter Subscriptions
+// User Newsletter Subscriptions with enhanced preferences
 model UserNewsletterSubscription {
   id                        String   @id @default(cuid())
   userId                    String   @map("user_id")
   newsletterId              String   @map("newsletter_id")
   isActive                  Boolean  @default(true) @map("is_active")
   customCategory            String?  @map("custom_category")
+  
+  // AI Features Toggle
   aiEnabled                 Boolean  @default(true) @map("ai_enabled")
   aiSummaryEnabled          Boolean  @default(true) @map("ai_summary_enabled")
   aiCategorizationEnabled   Boolean  @default(true) @map("ai_categorization_enabled")
-  aiInterestFiltering       Boolean  @default(false) @map("ai_interest_filtering")
-  displayPreference         Json     @default("{\"type\": \"full\", \"showImages\": true}") @map("display_preference")
+  
+  // Display Preferences
+  displayPreference         Json?    @map("display_preference") // {type: "cards"|"list"|"summary", showImages: boolean, etc.}
+  
+  // Notification Preferences
+  emailNotification         Boolean  @default(true) @map("email_notification")
+  digestIncluded            Boolean  @default(true) @map("digest_included")
+  
+  subscribedAt              DateTime @default(now()) @map("subscribed_at")
   createdAt                 DateTime @default(now()) @map("created_at")
   updatedAt                 DateTime @updatedAt @map("updated_at")
 
+  // Relations
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   newsletter Newsletter @relation(fields: [newsletterId], references: [id], onDelete: Cascade)
 
   @@unique([userId, newsletterId])
+  @@index([userId])
+  @@index([newsletterId])
+  @@index([isActive])
   @@map("user_newsletter_subscriptions")
 }
 
-// Email Processing
-model EmailProcessing {
-  id                String    @id @default(cuid())
-  userId            String    @map("user_id")
-  emailAddress      String    @map("email_address")
-  processingStatus  String    @default("pending") @map("processing_status")
-  lastProcessedAt   DateTime? @map("last_processed_at")
-  createdAt         DateTime  @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("email_processing")
-}
-
-// Newsletter Articles/Content
+// Newsletter Articles with enhanced metadata
 model NewsletterArticle {
   id                    String    @id @default(cuid())
-  newsletterId          String    @map("newsletter_id")
   userId                String    @map("user_id")
-  title                 String
-  content               String?
-  excerpt               String?
+  newsletterId          String    @map("newsletter_id")
+  subject               String
+  content               String    @db.Text
+  htmlContent           String?   @db.Text @map("html_content")
+  plainTextContent      String?   @db.Text @map("plain_text_content")
   url                   String?
-  imageUrl              String?   @map("image_url")
-  aiSummary             String?   @map("ai_summary")
+  
+  // AI Generated Content
+  aiGeneratedTitle      String?   @map("ai_generated_title")
+  aiSummary             String?   @db.Text @map("ai_summary")
   aiCategory            String?   @map("ai_category")
   aiInterestScore       Float     @default(0) @map("ai_interest_score")
   aiGeneratedThumbnail  String?   @map("ai_generated_thumbnail")
+  aiTags                String[]  @map("ai_tags")
+  
+  // Metadata
   publishedAt           DateTime? @map("published_at")
   processedAt           DateTime  @default(now()) @map("processed_at")
+  
+  // User Interaction
   isRead                Boolean   @default(false) @map("is_read")
   isSaved               Boolean   @default(false) @map("is_saved")
+  readAt                DateTime? @map("read_at")
+  savedAt               DateTime? @map("saved_at")
+  
+  // Email Source Information
   sourceEmailId         String?   @map("source_email_id")
   sourceSubject         String?   @map("source_subject")
+  
   createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
 
-  newsletter Newsletter @relation(fields: [newsletterId], references: [id], onDelete: Cascade)
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Relations
+  newsletter    Newsletter      @relation(fields: [newsletterId], references: [id], onDelete: Cascade)
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  savedArticles SavedArticle[]
+  views         ArticleView[]
 
+  @@index([userId])
+  @@index([newsletterId])
+  @@index([isRead])
+  @@index([isSaved])
+  @@index([publishedAt])
+  @@index([aiInterestScore])
   @@map("newsletter_articles")
 }
+
+// Saved Articles (separate table for better querying)
+model SavedArticle {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  articleId  String   @map("article_id")
+  notes      String?  @db.Text
+  tags       String[]
+  folderId   String?  @map("folder_id")
+  savedAt    DateTime @default(now()) @map("saved_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article NewsletterArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  folder  SavedFolder?      @relation(fields: [folderId], references: [id])
+
+  @@unique([userId, articleId])
+  @@index([userId])
+  @@index([savedAt])
+  @@map("saved_articles")
+}
+
+// Folders for organizing saved articles
+model SavedFolder {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  name        String
+  description String?
+  color       String   @default("#3B82F6")
+  icon        String   @default("folder")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  articles SavedArticle[]
+
+  @@unique([userId, name])
+  @@map("saved_folders")
+}
+
+// Article Views for analytics
+model ArticleView {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  articleId  String   @map("article_id")
+  viewedAt   DateTime @default(now()) @map("viewed_at")
+  duration   Int?     // seconds spent viewing
+  scrollDepth Float?  @map("scroll_depth") // percentage scrolled
+
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article NewsletterArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([articleId])
+  @@index([viewedAt])
+  @@map("article_views")
+}
+
+// ============================================================================
+// CATEGORIES & ORGANIZATION
+// ============================================================================
 
 // User Categories (custom groupings)
 model UserCategory {
@@ -150,12 +302,15 @@ model UserCategory {
   color       String   @default("#3B82F6")
   icon        String   @default("folder")
   sortOrder   Int      @default(0) @map("sort_order")
+  isDefault   Boolean  @default(false) @map("is_default")
   createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   user                User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
   categoryAssignments NewsletterCategoryAssignment[]
 
   @@unique([userId, name])
+  @@index([userId])
   @@map("user_categories")
 }
 
@@ -172,22 +327,45 @@ model NewsletterCategoryAssignment {
   category   UserCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@unique([userId, newsletterId, categoryId])
+  @@index([userId])
   @@map("newsletter_category_assignments")
 }
+
+// ============================================================================
+// USER PREFERENCES & SETTINGS
+// ============================================================================
 
 // User Preferences
 model UserPreferences {
   id                   String   @id @default(cuid())
   userId               String   @unique @map("user_id")
+  
+  // AI Settings
   globalAiEnabled      Boolean  @default(true) @map("global_ai_enabled")
-  aiSummaryLength      String   @default("medium") @map("ai_summary_length")
+  aiSummaryLength      String   @default("medium") @map("ai_summary_length") // short, medium, long
   aiInterestThreshold  Float    @default(0.5) @map("ai_interest_threshold")
-  digestFrequency      String   @default("daily") @map("digest_frequency")
+  
+  // Digest Settings
+  digestFrequency      String   @default("daily") @map("digest_frequency") // daily, weekly, never
   digestTime           String   @default("08:00:00") @map("digest_time")
   digestTimezone       String   @default("UTC") @map("digest_timezone")
-  defaultView          String   @default("cards") @map("default_view")
+  digestEnabled        Boolean  @default(true) @map("digest_enabled")
+  
+  // Display Settings
+  defaultView          String   @default("cards") @map("default_view") // cards, list, compact
   articlesPerPage      Int      @default(20) @map("articles_per_page")
   showReadArticles     Boolean  @default(false) @map("show_read_articles")
+  darkMode             Boolean  @default(false) @map("dark_mode")
+  compactMode          Boolean  @default(false) @map("compact_mode")
+  
+  // Feed Settings
+  defaultSort          String   @default("newest") @map("default_sort") // newest, oldest, interest
+  groupByNewsletter    Boolean  @default(false) @map("group_by_newsletter")
+  
+  // Notification Settings
+  emailNotifications   Boolean  @default(true) @map("email_notifications")
+  pushNotifications    Boolean  @default(false) @map("push_notifications")
+  
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
@@ -196,29 +374,47 @@ model UserPreferences {
   @@map("user_preferences")
 }
 
+// Feed Filters (saved filter presets)
+model FeedFilter {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  name        String
+  description String?
+  filters     Json     // {newsletters: [], categories: [], tags: [], dateRange: {}, etc.}
+  isDefault   Boolean  @default(false) @map("is_default")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("feed_filters")
+}
+
+// ============================================================================
+// SUBSCRIPTION & BILLING
+// ============================================================================
+
 // Subscription Plans
 model SubscriptionPlan {
   id                        String   @id @default(cuid())
   name                      String   @unique
   displayName               String   @map("display_name")
   description               String?
-  priceMonthly              Float    @default(0) @map("price_monthly")
-  priceYearly               Float    @default(0) @map("price_yearly")
+  price                     Float    @default(0)
+  currency                  String   @default("USD")
+  interval                  String   @default("month") // month, year
   maxNewsletters            Int      @default(3) @map("max_newsletters")
   maxArticlesPerMonth       Int      @default(1000) @map("max_articles_per_month")
   maxSavedArticles          Int      @default(100) @map("max_saved_articles")
   maxCategories             Int      @default(5) @map("max_categories")
-  aiSummariesEnabled        Boolean  @default(true) @map("ai_summaries_enabled")
-  aiThumbnailsEnabled       Boolean  @default(false) @map("ai_thumbnails_enabled")
-  aiInterestScoringEnabled  Boolean  @default(true) @map("ai_interest_scoring_enabled")
-  customCategoriesEnabled   Boolean  @default(true) @map("custom_categories_enabled")
-  emailDigestEnabled        Boolean  @default(true) @map("email_digest_enabled")
-  advancedFilteringEnabled  Boolean  @default(false) @map("advanced_filtering_enabled")
-  apiAccessEnabled          Boolean  @default(false) @map("api_access_enabled")
-  prioritySupportEnabled    Boolean  @default(false) @map("priority_support_enabled")
-  whiteLabelEnabled         Boolean  @default(false) @map("white_label_enabled")
+  aiSummaryEnabled          Boolean  @default(true) @map("ai_summary_enabled")
+  aiCategorizationEnabled   Boolean  @default(true) @map("ai_categorization_enabled")
+  prioritySupport           Boolean  @default(false) @map("priority_support")
+  customBranding            Boolean  @default(false) @map("custom_branding")
+  stripePriceId             String?  @map("stripe_price_id")
   isActive                  Boolean  @default(true) @map("is_active")
-  sortOrder                 Int      @default(0) @map("sort_order")
   createdAt                 DateTime @default(now()) @map("created_at")
   updatedAt                 DateTime @updatedAt @map("updated_at")
 
@@ -232,18 +428,20 @@ model UserSubscription {
   id                    String    @id @default(cuid())
   userId                String    @unique @map("user_id")
   planId                String    @map("plan_id")
-  status                String    @default("active")
-  billingCycle          String    @default("monthly") @map("billing_cycle")
-  currentPeriodStart    DateTime? @map("current_period_start")
-  currentPeriodEnd      DateTime? @map("current_period_end")
-  trialStart            DateTime? @map("trial_start")
+  status                String    @default("active") // active, cancelled, expired, trial
+  currentPeriodStart    DateTime  @default(now()) @map("current_period_start")
+  currentPeriodEnd      DateTime  @map("current_period_end")
+  cancelAtPeriodEnd     Boolean   @default(false) @map("cancel_at_period_end")
   trialEnd              DateTime? @map("trial_end")
   stripeSubscriptionId  String?   @unique @map("stripe_subscription_id")
   stripeCustomerId      String?   @map("stripe_customer_id")
+  
+  // Usage Tracking
   newslettersCount      Int       @default(0) @map("newsletters_count")
   articlesThisMonth     Int       @default(0) @map("articles_this_month")
   savedArticlesCount    Int       @default(0) @map("saved_articles_count")
   categoriesCount       Int       @default(0) @map("categories_count")
+  
   startedAt             DateTime  @default(now()) @map("started_at")
   canceledAt            DateTime? @map("canceled_at")
   createdAt             DateTime  @default(now()) @map("created_at")
@@ -252,20 +450,99 @@ model UserSubscription {
   user User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   plan SubscriptionPlan @relation(fields: [planId], references: [id])
 
+  @@index([status])
   @@map("user_subscriptions")
 }
+
+// ============================================================================
+// EMAIL PROCESSING & WORKFLOW
+// ============================================================================
+
+// Raw Emails (temporary storage before processing)
+model RawEmail {
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id")
+  messageId    String?   @map("message_id")
+  sender       String
+  subject      String
+  receivedDate DateTime  @map("received_date")
+  rawContent   String    @db.Text @map("raw_content")
+  htmlContent  String?   @db.Text @map("html_content")
+  textContent  String?   @db.Text @map("text_content")
+  processed    Boolean   @default(false)
+  processedAt  DateTime? @map("processed_at")
+  error        String?   @db.Text
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([processed])
+  @@index([receivedDate])
+  @@map("raw_emails")
+}
+
+// Email Processing Status
+model EmailProcessing {
+  id          String    @id @default(cuid())
+  userId      String    @map("user_id")
+  emailId     String    @map("email_id")
+  status      String    @default("pending") // pending, processing, completed, failed
+  stage       String?   // parsing, ai_processing, saving
+  progress    Int       @default(0)
+  error       String?   @db.Text
+  startedAt   DateTime  @default(now()) @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("email_processing")
+}
+
+// Processing Jobs
+model ProcessingJob {
+  id          String    @id @default(cuid())
+  jobType     String    // email_process, ai_summary, category_assign, etc.
+  status      String    @default("pending") // pending, processing, completed, failed
+  priority    Int       @default(0)
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3) @map("max_attempts")
+  data        Json
+  result      Json?
+  error       String?   @db.Text
+  scheduledAt DateTime  @default(now()) @map("scheduled_at")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("processing_jobs")
+}
+
+// ============================================================================
+// ANALYTICS & MONITORING
+// ============================================================================
 
 // Usage tracking for analytics and billing
 model UsageEvent {
   id             String   @id @default(cuid())
   userId         String   @map("user_id")
-  eventType      String   @map("event_type")
+  eventType      String   @map("event_type") // article_read, email_processed, ai_summary, etc.
   eventData      Json?    @map("event_data")
   quotaConsumed  Int      @default(1) @map("quota_consumed")
+  metadata       Json?
   createdAt      DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+  @@index([eventType])
+  @@index([createdAt])
   @@map("usage_events")
 }
 
@@ -277,40 +554,24 @@ model FeatureFlag {
   isEnabled          Boolean  @default(false) @map("is_enabled")
   rolloutPercentage  Int      @default(0) @map("rollout_percentage")
   targetUsers        String[] @map("target_users")
+  config             Json?    // Additional configuration
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
   @@map("feature_flags")
 }
 
-model ProcessingJob {
+// System Settings
+model SystemSetting {
   id          String   @id @default(cuid())
-  jobType     String   
-  status      String   @default("pending")
-  attempts    Int      @default(0)
-  data        Json
-  error       String?
-  scheduledAt DateTime @default(now())
-  startedAt   DateTime?   
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@map("processing_jobs")
-}
+  key         String   @unique
+  value       Json
+  description String?
+  category    String   @default("general") // general, email, ai, security, etc.
+  updatedBy   String?  @map("updated_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-// Raw Emails (temporary storage before processing)
-model RawEmail {
-  id           String    @id @default(cuid())
-  userId       String    @map("user_id")
-  messageId    String?   @map("message_id")
-  sender       String
-  subject      String
-  receivedDate DateTime  @map("received_date")
-  rawContent   String    @map("raw_content") // Full email content
-  processed    Boolean   @default(false)
-  createdAt    DateTime  @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("raw_emails")
+  @@index([category])
+  @@map("system_settings")
 }
