@@ -1,4 +1,4 @@
-// app/api/articles/route.ts
+// app/api/articles/saved/route.ts
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
@@ -23,10 +23,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Fetch articles for this user
+    // Fetch only saved articles
     const articles = await prisma.newsletterArticle.findMany({
       where: {
-        userId: user.id
+        userId: user.id,
+        isSaved: true
       },
       include: {
         newsletter: {
@@ -37,9 +38,8 @@ export async function GET(request: Request) {
         }
       },
       orderBy: {
-        processedAt: 'desc'
-      },
-      take: 50 // Limit to recent 50 articles
+        createdAt: 'desc' // Most recently saved first
+      }
     })
 
     // Transform to match the component's expected format
@@ -63,9 +63,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json(transformedArticles)
   } catch (error) {
-    console.error('Error fetching articles:', error)
+    console.error('Error fetching saved articles:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch articles' },
+      { error: 'Failed to fetch saved articles' },
       { status: 500 }
     )
   }

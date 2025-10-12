@@ -71,10 +71,10 @@ export function Header() {
         {/* Header Actions */}
         <div className="flex items-center space-x-3">
           {/* Magic Filter - Hidden on mobile */}
-          <Button variant="outline" size="sm" className="hidden lg:flex items-center">
+          {/* <Button variant="outline" size="sm" className="hidden lg:flex items-center">
             <Filter className="w-4 h-4 mr-2" />
             Magic Filter
-          </Button>
+          </Button> */}
 
           {/* Notifications */}
           <Button variant="outline" size="sm" className="relative">

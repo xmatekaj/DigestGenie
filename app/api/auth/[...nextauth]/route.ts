@@ -1,3 +1,4 @@
+// app/api/auth/[...nextauth]/route.ts
 import NextAuth, { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import { prisma } from '@/lib/prisma'
@@ -7,6 +8,13 @@ const adminEmails = process.env.ADMIN_EMAILS?.split(',').map(e => e.trim()) || [
   'matekaj@proton.me',
   'xmatekaj@gmail.com'
 ];
+
+// Generate system email from user's email
+function generateSystemEmail(email: string): string {
+  const emailDomain = process.env.EMAIL_DOMAIN || 'digestgenie.com'
+  const username = email.split('@')[0] // Extract username before @
+  return `${username}@${emailDomain}`
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -28,22 +36,57 @@ export const authOptions: NextAuthOptions = {
           const existingUser = await prisma.user.findUnique({
             where: { email: profile.email! }
           })
+          
           if (!existingUser) {
+            // Generate system email from user's email
+            const systemEmail = generateSystemEmail(profile.email!)
+            
+            // Create new user with auto-generated system email
             await prisma.user.create({
               data: {
                 id: account.providerAccountId,
                 email: profile.email!,
                 name: profile.name!,
                 googleId: account.providerAccountId,
+                systemEmail: systemEmail,
                 createdAt: new Date(),
                 updatedAt: new Date()
               }
             })
+            
+            // Create email processing record
+            await prisma.emailProcessing.create({
+              data: {
+                userId: account.providerAccountId,
+                emailAddress: systemEmail,
+                processingStatus: 'active'
+              }
+            })
           } else {
+            // Update existing user
             await prisma.user.update({
               where: { email: profile.email! },
               data: { updatedAt: new Date() }
             })
+            
+            // If existing user doesn't have system email, create one
+            if (!existingUser.systemEmail) {
+              const systemEmail = generateSystemEmail(profile.email!)
+              
+              await prisma.user.update({
+                where: { id: existingUser.id },
+                data: { systemEmail: systemEmail }
+              })
+              
+              // Create email processing record
+              await prisma.emailProcessing.create({
+                data: {
+                  userId: existingUser.id,
+                  emailAddress: systemEmail,
+                  processingStatus: 'active'
+                }
+              })
+            }
           }
         } catch (error) {
           console.error('Database error:', error)
