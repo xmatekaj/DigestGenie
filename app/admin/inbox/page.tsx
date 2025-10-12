@@ -37,6 +37,7 @@ export default function AdminInboxPage() {
   const [emails, setEmails] = useState<RawEmail[]>([])
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState<string | null>(null)
+  const [creatingTest, setCreatingTest] = useState(false)
   const [selectedEmail, setSelectedEmail] = useState<RawEmail | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -90,6 +91,33 @@ export default function AdminInboxPage() {
     }
   }
 
+  const createTestEmail = async () => {
+    try {
+      setCreatingTest(true)
+      setError('')
+      setSuccess('')
+
+      const response = await fetch('/api/admin/inbox/test', {
+        method: 'POST'
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setSuccess('Test email created successfully!')
+        // Refresh emails
+        await fetchEmails()
+      } else {
+        setError(data.error || 'Failed to create test email')
+      }
+    } catch (error) {
+      console.error('Error creating test email:', error)
+      setError('Failed to create test email')
+    } finally {
+      setCreatingTest(false)
+    }
+  }
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleString('en-US', {
@@ -129,10 +157,29 @@ export default function AdminInboxPage() {
               View and process all incoming newsletter emails
             </p>
           </div>
-          <Button onClick={fetchEmails} variant="outline">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={createTestEmail} 
+              variant="default"
+              disabled={creatingTest}
+            >
+              {creatingTest ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Create Test Email
+                </>
+              )}
+            </Button>
+            <Button onClick={fetchEmails} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
         </div>
       </div>
 
