@@ -26,7 +26,6 @@ interface RawEmail {
   rawContent: string
   receivedDate: string
   processed: boolean
-  processedAt: string | null
   user: {
     email: string
     name: string | null
@@ -286,12 +285,6 @@ export default function AdminInboxPage() {
                         {email.rawContent}
                       </pre>
                     </div>
-                    
-                    {email.processedAt && (
-                      <div className="mt-4 text-sm text-gray-600">
-                        Processed at: {formatDate(email.processedAt)}
-                      </div>
-                    )}
                   </div>
                 </CardContent>
               )}

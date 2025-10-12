@@ -100,8 +100,7 @@ export async function POST(
     await prisma.rawEmail.update({
       where: { id },
       data: { 
-        processed: true,
-        processedAt: new Date()
+        processed: true
       }
     })
 
