@@ -130,6 +130,18 @@ export default function AdminDashboard() {
       {/* Quick Actions */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Link
+  href="/admin/inbox"
+  className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
+>
+  <div className="flex items-center">
+    <Mail className="w-8 h-8 text-indigo-600" />
+    <div className="ml-3">
+      <p className="text-sm font-medium text-gray-900">Inbox</p>
+      <p className="text-xs text-gray-500">View all emails</p>
+    </div>
+  </div>
+</Link>
+        <Link
           href="/admin/categories"
           className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
         >
