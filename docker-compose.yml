@@ -7,6 +7,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
     depends_on:
       - web
@@ -22,15 +23,12 @@ services:
     container_name: digestgenie-web
     env_file:
       - .env
-    ports:
-      - "3000:3000"
     depends_on:
       - postgres
       - redis
     networks:
       - digestgenie-network
     restart: unless-stopped
-    # Optional: Add healthcheck
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
@@ -42,9 +40,9 @@ services:
     image: postgres:15-alpine
     container_name: digestgenie-postgres
     environment:
-      POSTGRES_DB: digestgenie_dev
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: digestgenie2024
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5433:5432"
     volumes:
@@ -84,6 +82,55 @@ services:
       - digestgenie-network
     restart: unless-stopped
 
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: digestgenie-mailhog
+    ports:
+      - "1025:1025"  # SMTP server
+      - "8025:8025"  # Web UI
+    restart: unless-stopped
+    networks:
+      - digestgenie-network
+
+# Postfix Mail Server - Receives incoming emails
+  postfix:
+    image: boky/postfix:latest
+    container_name: digestgenie-postfix
+    hostname: mail.${DOMAIN}
+    environment:
+      - maildomain=${DOMAIN}
+      - smtp_user=${SMTP_USER}:${SMTP_PASSWORD}
+    ports:
+      - "25:587"     # SMTP port
+    volumes:
+      - ./mail/postfix:/var/spool/postfix
+      - ./mail/mailboxes:/var/mail
+      - ./mail/scripts:/scripts:ro
+    restart: unless-stopped
+    networks:
+      - digestgenie-network
+
+  # Email Forwarder - Forwards received emails to webhook
+  mail-forwarder:
+    build:
+      context: ./mail/forwarder
+      dockerfile: Dockerfile
+    container_name: digestgenie-mail-forwarder
+    environment:
+      - WEBHOOK_URL=http://digestgenie-web:3000/api/webhooks/email
+      - MAILBOX_PATH=/var/mail
+      - CHECK_INTERVAL=10
+    volumes:
+      - ./mail/mailboxes:/var/mail:ro
+    depends_on:
+      - postfix
+      - web
+    restart: unless-stopped
+    networks:
+      - digestgenie-network
+
+
+
 volumes:
   postgres_data:
   n8n_data:
@@ -91,3 +138,4 @@ volumes:
 networks:
   digestgenie-network:
     driver: bridge
+
