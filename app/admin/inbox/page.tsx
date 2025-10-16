@@ -42,6 +42,8 @@ export default function AdminInboxPage() {
   const [selectedEmail, setSelectedEmail] = useState<RawEmail | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [deleteOlderThan, setDeleteOlderThan] = useState('')
 
   useEffect(() => {
     fetchEmails()
@@ -137,7 +139,80 @@ export default function AdminInboxPage() {
         console.error('Error deleting email:', error)
         setError('Failed to delete email')
     }
+  }
+
+  const deletePendingEmails = async () => {
+  if (!confirm('Delete all pending emails?')) return
+  
+  try {
+    const response = await fetch('/api/admin/inbox/bulk', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'pending' })
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      setSuccess(`Deleted ${data.count} pending emails`)
+      await fetchEmails()
+    } else {
+      setError('Failed to delete pending emails')
     }
+  } catch (error) {
+    setError('Failed to delete pending emails')
+  }
+}
+
+const deleteOlderThanDate = async () => {
+  if (!deleteOlderThan) {
+    setError('Please select a date')
+    return
+  }
+  if (!confirm(`Delete all emails older than ${deleteOlderThan}?`)) return
+  
+  try {
+    const response = await fetch('/api/admin/inbox/bulk', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'older', date: deleteOlderThan })
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      setSuccess(`Deleted ${data.count} emails`)
+      await fetchEmails()
+      setShowDatePicker(false)
+      setDeleteOlderThan('')
+    } else {
+      setError('Failed to delete emails')
+    }
+  } catch (error) {
+    setError('Failed to delete emails')
+  }
+}
+
+const deleteAllEmails = async () => {
+  if (!confirm('Delete ALL emails? This cannot be undone!')) return
+  if (!confirm('Are you absolutely sure?')) return
+  
+  try {
+    const response = await fetch('/api/admin/inbox/bulk', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'all' })
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      setSuccess(`Deleted ${data.count} emails`)
+      await fetchEmails()
+    } else {
+      setError('Failed to delete all emails')
+    }
+  } catch (error) {
+    setError('Failed to delete all emails')
+  }
+  }
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -178,29 +253,75 @@ export default function AdminInboxPage() {
               View and process all incoming newsletter emails
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button 
-              onClick={createTestEmail} 
-              variant="default"
-              disabled={creatingTest}
-            >
-              {creatingTest ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Create Test Email
-                </>
-              )}
-            </Button>
+          <div className="flex gap-2 flex-wrap">
+            {/* Hide test email button */}
+            {false && (
+                <Button 
+                onClick={createTestEmail} 
+                variant="default"
+                disabled={creatingTest}
+                >
+                {creatingTest ? (
+                    <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                    </>
+                ) : (
+                    <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Create Test Email
+                    </>
+                )}
+                </Button>
+            )}
+            
             <Button onClick={fetchEmails} variant="outline">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
             </Button>
-          </div>
+            
+            <Button 
+                onClick={deletePendingEmails} 
+                variant="destructive"
+                disabled={emails.filter(e => !e.processed).length === 0}
+            >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Pending
+            </Button>
+            
+            <div className="relative">
+                <Button 
+                onClick={() => setShowDatePicker(!showDatePicker)} 
+                variant="destructive"
+                >
+                <Calendar className="h-4 w-4 mr-2" />
+                Delete Older Than...
+                </Button>
+                
+                {showDatePicker && (
+                <div className="absolute right-0 mt-2 p-4 bg-white border rounded-lg shadow-lg z-10">
+                    <input
+                    type="date"
+                    value={deleteOlderThan}
+                    onChange={(e) => setDeleteOlderThan(e.target.value)}
+                    className="border rounded px-2 py-1 mb-2"
+                    />
+                    <div className="flex gap-2">
+                    <Button size="sm" onClick={deleteOlderThanDate}>Delete</Button>
+                    <Button size="sm" variant="outline" onClick={() => setShowDatePicker(false)}>Cancel</Button>
+                    </div>
+                </div>
+                )}
+            </div>
+            
+            <Button 
+                onClick={deleteAllEmails} 
+                variant="destructive"
+            >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete All
+            </Button>
+            </div>
         </div>
       </div>
 
