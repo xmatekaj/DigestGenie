@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Trash2 } from 'lucide-react'
 import {
   Mail,
   RefreshCw,
@@ -117,6 +118,26 @@ export default function AdminInboxPage() {
       setCreatingTest(false)
     }
   }
+
+  const deleteEmail = async (emailId: string) => {
+    if (!confirm('Are you sure you want to delete this email?')) return
+    
+    try {
+        const response = await fetch(`/api/admin/inbox/${emailId}`, {
+        method: 'DELETE'
+        })
+        
+        if (response.ok) {
+        setSuccess('Email deleted successfully')
+        await fetchEmails()
+        } else {
+        setError('Failed to delete email')
+        }
+    } catch (error) {
+        console.error('Error deleting email:', error)
+        setError('Failed to delete email')
+    }
+    }
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -321,10 +342,12 @@ export default function AdminInboxPage() {
                     )}
 
                     <Button
-                      variant="destructive"
-                      size="sm"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => deleteEmail(email.id)}
                     >
-                      <Eye className="h-4 w-4 mr-1" />Delete
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Delete
                     </Button>
                   </div>
                 </div>
