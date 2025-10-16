@@ -1,4 +1,4 @@
-// components/landing-page-client.tsx - Updated with better navigation
+// components/landing-page-client.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -29,7 +29,8 @@ import {
   ExternalLink,
   Mail,
   Plus,
-  LayoutDashboard
+  LayoutDashboard,
+  ChevronDown
 } from 'lucide-react';
 
 interface LandingPageClientProps {
@@ -48,192 +49,122 @@ interface Category {
 interface Article {
   id: string;
   title: string;
-  summary: string;
-  category: string;
-  newsletter: string;
-  publishedAt: Date;
+  source: string;
+  date: string;
   readTime: string;
-  aiIcon: string;
+  category: string;
   interestScore: number;
+  summary?: string;
+  imageUrl?: string;
 }
 
 export default function LandingPageClient({ session, isAdmin }: LandingPageClientProps) {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [articles, setArticles] = useState<Article[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [displayMode, setDisplayMode] = useState<'cards' | 'list' | 'compact'>('cards');
-  const [currentPage, setCurrentPage] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [showAdminBanner, setShowAdminBanner] = useState(false);
-
-  const itemsPerPage = 6;
+  const [showAdminBanner, setShowAdminBanner] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    if (isAdmin) {
-      setShowAdminBanner(true);
-    }
-    fetchCategories();
-    fetchArticles();
-  }, [isAdmin]);
-
-  const fetchCategories = async () => {
-    try {
-      const response = await fetch('/api/categories');
-      if (response.ok) {
-        const data = await response.json();
-        const categoriesWithIcons = data.map((cat: any) => ({
-          id: cat.id,
-          name: cat.name,
-          icon: getIconComponent(cat.icon),
-          color: cat.color,
-          articleCount: cat.articleCount || 0
-        }));
-        setCategories(categoriesWithIcons);
-      }
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      setCategories([]);
-    }
-  };
-
-  const fetchArticles = async () => {
-    try {
-      const response = await fetch('/api/articles/public');
-      if (response.ok) {
-        const data = await response.json();
-        setArticles(data);
-      } else {
-        setArticles([]);
-      }
-    } catch (error) {
-      console.error('Error fetching articles:', error);
-      setArticles([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getIconComponent = (iconName: string) => {
-    const iconMap: { [key: string]: React.ComponentType<any> } = {
-      'Zap': Zap,
-      'Code': Code,
-      'Cpu': Cpu,
-      'Briefcase': Briefcase,
-      'Globe': Globe,
-      'TrendingUp': TrendingUp,
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
     };
-    return iconMap[iconName] || Globe;
-  };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const dismissAdminBanner = () => {
     setShowAdminBanner(false);
+    localStorage.setItem('adminBannerDismissed', 'true');
   };
+
+  const categories: Category[] = [
+    { id: 'all', name: 'All News', icon: Globe, color: 'blue', articleCount: 42 },
+    { id: 'tech', name: 'Technology', icon: Cpu, color: 'purple', articleCount: 15 },
+    { id: 'ai', name: 'AI & ML', icon: Zap, color: 'pink', articleCount: 8 },
+    { id: 'code', name: 'Development', icon: Code, color: 'green', articleCount: 12 },
+    { id: 'business', name: 'Business', icon: Briefcase, color: 'orange', articleCount: 7 },
+    { id: 'trending', name: 'Trending', icon: TrendingUp, color: 'red', articleCount: 5 },
+  ];
+
+  const mockArticles: Article[] = [
+    {
+      id: '1',
+      title: 'The Future of AI in Software Development',
+      source: 'TechCrunch',
+      date: '2024-01-15',
+      readTime: '5 min',
+      category: 'ai',
+      interestScore: 95,
+      summary: 'Exploring how artificial intelligence is revolutionizing the way we write and maintain code...',
+      imageUrl: 'https://via.placeholder.com/400x200'
+    },
+    {
+      id: '2',
+      title: 'New JavaScript Framework Released',
+      source: 'Dev.to',
+      date: '2024-01-14',
+      readTime: '3 min',
+      category: 'code',
+      interestScore: 87,
+      summary: 'A new lightweight framework promises better performance and developer experience...'
+    },
+    {
+      id: '3',
+      title: 'Startup Funding Trends in 2024',
+      source: 'Morning Brew',
+      date: '2024-01-14',
+      readTime: '4 min',
+      category: 'business',
+      interestScore: 72,
+      summary: 'Analysis of investment patterns and emerging sectors in the startup ecosystem...'
+    },
+  ];
 
   const filteredArticles = selectedCategory === 'all' 
-    ? articles 
-    : articles.filter(article => article.category === selectedCategory);
-
-  const totalPages = Math.ceil(filteredArticles.length / itemsPerPage);
-  const paginatedArticles = filteredArticles.slice(
-    currentPage * itemsPerPage,
-    (currentPage + 1) * itemsPerPage
-  );
-
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
-
-  const renderEmptyState = () => (
-    <div className="text-center py-16">
-      <Mail className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-      <h3 className="text-xl font-semibold text-gray-900 mb-2">
-        No articles yet
-      </h3>
-      <p className="text-gray-600 mb-6">
-        {session 
-          ? "Subscribe to newsletters to start seeing articles here"
-          : "Sign in to subscribe to newsletters and see personalized content"
-        }
-      </p>
-      {session && (
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Subscribe to Newsletters
-        </Link>
-      )}
-    </div>
-  );
+    ? mockArticles 
+    : mockArticles.filter(article => article.category === selectedCategory);
 
   const renderArticle = (article: Article) => {
-    const categoryData = categories.find(c => c.id === article.category);
-    const IconComponent = categoryData?.icon || Globe;
-
     switch (displayMode) {
-      case 'list':
+      case 'cards':
         return (
-          <div key={article.id} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-start space-x-4">
-              <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${categoryData?.color} flex items-center justify-center flex-shrink-0`}>
-                <IconComponent className="w-6 h-6 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center space-x-2 mb-2">
-                  <span className="text-sm font-medium text-blue-600">{article.newsletter}</span>
-                  <span className="text-gray-300">•</span>
-                  <span className="text-sm text-gray-500">{formatDate(article.publishedAt)}</span>
-                  <span className="text-gray-300">•</span>
-                  <span className="text-sm text-gray-500">{article.readTime}</span>
+          <div key={article.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+            {article.imageUrl && (
+              <img src={article.imageUrl} alt={article.title} className="w-full h-48 object-cover" />
+            )}
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                  {article.source}
+                </span>
+                <div className="flex items-center space-x-2 text-xs text-gray-500">
+                  <Calendar className="w-3 h-3" />
+                  <span>{new Date(article.date).toLocaleDateString()}</span>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">{article.title}</h3>
-                <p className="text-gray-600 text-sm leading-relaxed">{article.summary}</p>
-                <div className="flex items-center justify-between mt-4">
-                  <span className="text-2xl">{article.aiIcon}</span>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+                {article.title}
+              </h3>
+              {article.summary && (
+                <p className="text-sm text-gray-600 mb-4 line-clamp-2">{article.summary}</p>
+              )}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4 text-xs text-gray-500">
+                  <div className="flex items-center space-x-1">
+                    <Clock className="w-3 h-3" />
+                    <span>{article.readTime}</span>
+                  </div>
                   <div className="flex items-center space-x-2">
-                    <div className="w-16 bg-gray-200 rounded-full h-2">
+                    <div className="w-full bg-gray-200 rounded-full h-1.5" style={{ width: '60px' }}>
                       <div 
-                        className="bg-blue-600 h-2 rounded-full" 
+                        className="bg-green-500 h-1.5 rounded-full" 
                         style={{ width: `${article.interestScore}%` }}
                       ></div>
                     </div>
-                    <span className="text-xs text-gray-500">{article.interestScore}%</span>
+                    <span className="text-xs text-gray-500 font-medium">{article.interestScore}% match</span>
                   </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'compact':
-        return (
-          <div key={article.id} className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
-            <div className="flex items-center space-x-3 mb-3">
-              <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${categoryData?.color} flex items-center justify-center flex-shrink-0`}>
-                <IconComponent className="w-4 h-4 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-900 text-sm leading-tight truncate">{article.title}</h3>
-                <div className="flex items-center space-x-2 mt-1">
-                  <span className="text-xs text-blue-600">{article.newsletter}</span>
-                  <span className="text-gray-300">•</span>
-                  <span className="text-xs text-gray-500">{formatDate(article.publishedAt)}</span>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="flex items-center space-x-1">
-                  <div className="w-12 bg-gray-200 rounded-full h-1.5">
-                    <div 
-                      className="bg-blue-600 h-1.5 rounded-full" 
-                      style={{ width: `${article.interestScore}%` }}
-                    ></div>
-                  </div>
-                  <span className="text-xs text-gray-500 font-medium">{article.interestScore}% match</span>
                 </div>
                 <BookOpen className="w-4 h-4 text-gray-400" />
               </div>
@@ -241,39 +172,51 @@ export default function LandingPageClient({ session, isAdmin }: LandingPageClien
           </div>
         );
 
-      default: // cards
+      case 'list':
         return (
-          <div key={article.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-300 hover:border-gray-300">
-            <div className="p-6">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${categoryData?.color} flex items-center justify-center flex-shrink-0`}>
-                  <IconComponent className="w-5 h-5 text-white" />
+          <div key={article.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center space-x-3 mb-2">
+                  <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                    {article.source}
+                  </span>
+                  <span className="text-xs text-gray-500">{new Date(article.date).toLocaleDateString()}</span>
+                  <span className="text-xs text-gray-500">• {article.readTime}</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-blue-600">{article.newsletter}</span>
-                  <div className="flex items-center space-x-2 mt-1">
-                    <Calendar className="w-3 h-3 text-gray-400" />
-                    <span className="text-xs text-gray-500">{formatDate(article.publishedAt)}</span>
-                    <span className="text-gray-300">•</span>
-                    <Clock className="w-3 h-3 text-gray-400" />
-                    <span className="text-xs text-gray-500">{article.readTime}</span>
-                  </div>
-                </div>
-                <span className="text-2xl">{article.aiIcon}</span>
+                <h3 className="text-base font-semibold text-gray-900 mb-1">{article.title}</h3>
+                {article.summary && (
+                  <p className="text-sm text-gray-600 line-clamp-1">{article.summary}</p>
+                )}
               </div>
-              
-              <h3 className="text-xl font-bold text-gray-900 mb-3 leading-tight">{article.title}</h3>
-              <p className="text-gray-600 text-sm leading-relaxed mb-4">{article.summary}</p>
-              
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="w-20 bg-gray-200 rounded-full h-2">
+              {article.imageUrl && (
+                <img src={article.imageUrl} alt={article.title} className="w-24 h-24 object-cover rounded-lg ml-4" />
+              )}
+            </div>
+          </div>
+        );
+
+      case 'compact':
+        return (
+          <div key={article.id} className="bg-white rounded-lg border border-gray-200 p-3 hover:bg-gray-50 transition-colors">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-gray-900 line-clamp-1">{article.title}</h3>
+                <div className="flex items-center space-x-2 mt-1 text-xs text-gray-500">
+                  <span>{article.source}</span>
+                  <span>•</span>
+                  <span>{article.readTime}</span>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2 ml-4">
+                <div className="flex items-center space-x-1">
+                  <div className="w-12 bg-gray-200 rounded-full h-1.5">
                     <div 
-                      className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full" 
+                      className="bg-green-500 h-1.5 rounded-full" 
                       style={{ width: `${article.interestScore}%` }}
                     ></div>
                   </div>
-                  <span className="text-xs text-gray-500 font-medium">{article.interestScore}% match</span>
+                  <span className="text-xs text-gray-500 font-medium">{article.interestScore}%</span>
                 </div>
                 <BookOpen className="w-4 h-4 text-gray-400" />
               </div>
@@ -317,56 +260,53 @@ export default function LandingPageClient({ session, isAdmin }: LandingPageClien
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <div className="flex-shrink-0">
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
                   DigestGenie
                 </h1>
               </div>
             </div>
             
-            {/* Updated Navigation */}
-            <div className="flex items-center space-x-4">
+            {/* Navigation */}
+            <div className="flex items-center space-x-2 sm:space-x-4">
               {session ? (
                 <>
-                  {/* Show admin panel link for admins */}
                   {isAdmin && (
                     <Link
                       href="/admin"
-                      className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-medium rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 shadow-md hover:shadow-lg"
+                      className="hidden sm:inline-flex items-center px-3 sm:px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-medium rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 shadow-md hover:shadow-lg"
                     >
                       <Shield className="w-4 h-4 mr-2" />
-                      Admin Panel
+                      <span className="hidden sm:inline">Admin Panel</span>
                     </Link>
                   )}
                   
-                  {/* Show dashboard link for all logged-in users */}
                   <Link
                     href="/dashboard"
-                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-md hover:shadow-lg"
+                    className="inline-flex items-center px-3 sm:px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-md hover:shadow-lg"
                   >
-                    <LayoutDashboard className="w-4 h-4 mr-2" />
-                    My Dashboard
+                    <LayoutDashboard className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">My Dashboard</span>
                   </Link>
                   
-                  {/* User info */}
-                  <div className="flex items-center space-x-2 text-sm text-gray-700">
+                  <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-700">
                     <User className="w-4 h-4" />
-                    <span className="hidden sm:inline">{session.user?.email}</span>
+                    <span className="hidden md:inline">{session.user?.email}</span>
                   </div>
                 </>
               ) : (
                 <>
                   <Link
                     href="/auth/signin"
-                    className="text-gray-700 hover:text-gray-900 px-4 py-2 text-sm font-medium"
+                    className="text-gray-700 hover:text-gray-900 px-3 sm:px-4 py-2 text-sm font-medium"
                   >
                     Sign In
                   </Link>
                   <Link
                     href="/auth/signin"
-                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-md hover:shadow-lg"
+                    className="inline-flex items-center px-3 sm:px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-md hover:shadow-lg"
                   >
-                    <LogIn className="w-4 h-4 mr-2" />
-                    Get Started
+                    <LogIn className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Get Started</span>
                   </Link>
                 </>
               )}
@@ -376,54 +316,59 @@ export default function LandingPageClient({ session, isAdmin }: LandingPageClien
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {/* Filters and Display Controls */}
-        <div className="flex items-center justify-between mb-8">
-          {/* Category Filters */}
-          <div className="flex items-center space-x-2 overflow-x-auto">
-            <button
-              onClick={() => setSelectedCategory('all')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                selectedCategory === 'all'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-              }`}
-            >
-              All
-              {articles.length > 0 && (
-                <span className="ml-2 text-xs">({articles.length})</span>
-              )}
-            </button>
-            {categories.map((category) => {
-              const IconComponent = category.icon;
-              return (
-                <button
-                  key={category.id}
-                  onClick={() => setSelectedCategory(category.id)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                    selectedCategory === category.id
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-                  }`}
-                >
-                  <IconComponent className="w-4 h-4" />
-                  <span>{category.name}</span>
-                  {category.articleCount !== undefined && category.articleCount > 0 && (
-                    <span className="text-xs">({category.articleCount})</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 gap-4">
+          
+          {/* Category Filters - Combobox on Mobile, Horizontal Scroll on Desktop */}
+          {isMobile ? (
+            <div className="relative w-full">
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full px-4 py-2.5 pr-10 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name} ({category.articleCount})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            </div>
+          ) : (
+            <div className="flex items-center space-x-2 overflow-x-auto pb-2">
+              {categories.map((category) => {
+                const Icon = category.icon;
+                return (
+                  <button
+                    key={category.id}
+                    onClick={() => setSelectedCategory(category.id)}
+                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                      selectedCategory === category.id
+                        ? `bg-${category.color}-50 text-${category.color}-600 border border-${category.color}-200`
+                        : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{category.name}</span>
+                    <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">
+                      {category.articleCount}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Display Mode Controls */}
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setDisplayMode('cards')}
-              className={`p-2 rounded-lg ${
-                displayMode === 'cards'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+              className={`p-2 rounded-lg transition-colors ${
+                displayMode === 'cards' 
+                  ? 'bg-blue-50 text-blue-600' 
+                  : 'text-gray-400 hover:bg-gray-100'
               }`}
               title="Card view"
             >
@@ -431,10 +376,10 @@ export default function LandingPageClient({ session, isAdmin }: LandingPageClien
             </button>
             <button
               onClick={() => setDisplayMode('list')}
-              className={`p-2 rounded-lg ${
-                displayMode === 'list'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+              className={`p-2 rounded-lg transition-colors ${
+                displayMode === 'list' 
+                  ? 'bg-blue-50 text-blue-600' 
+                  : 'text-gray-400 hover:bg-gray-100'
               }`}
               title="List view"
             >
@@ -442,10 +387,10 @@ export default function LandingPageClient({ session, isAdmin }: LandingPageClien
             </button>
             <button
               onClick={() => setDisplayMode('compact')}
-              className={`p-2 rounded-lg ${
-                displayMode === 'compact'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+              className={`p-2 rounded-lg transition-colors ${
+                displayMode === 'compact' 
+                  ? 'bg-blue-50 text-blue-600' 
+                  : 'text-gray-400 hover:bg-gray-100'
               }`}
               title="Compact view"
             >
@@ -454,85 +399,22 @@ export default function LandingPageClient({ session, isAdmin }: LandingPageClien
           </div>
         </div>
 
-        {/* Articles Display */}
-        {loading ? (
-          <div className="text-center py-16">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading articles...</p>
+        {/* Articles Grid */}
+        <div className={
+          displayMode === 'cards' 
+            ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6' 
+            : 'flex flex-col space-y-3 sm:space-y-4'
+        }>
+          {filteredArticles.map(article => renderArticle(article))}
+        </div>
+
+        {/* Empty State */}
+        {filteredArticles.length === 0 && (
+          <div className="text-center py-12">
+            <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No articles found</h3>
+            <p className="text-gray-500">Try selecting a different category</p>
           </div>
-        ) : (
-          <>
-            {filteredArticles.length === 0 ? (
-              renderEmptyState()
-            ) : (
-              <>
-                {/* Articles Grid */}
-                <div className={`grid gap-6 ${
-                  displayMode === 'cards' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' :
-                  displayMode === 'list' ? 'grid-cols-1' :
-                  'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
-                }`}>
-                  {paginatedArticles.map(renderArticle)}
-                </div>
-
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-center space-x-2 mt-8">
-                    <button
-                      onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
-                      disabled={currentPage === 0}
-                      className="p-2 rounded-lg bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    
-                    <div className="flex items-center space-x-1">
-                      {Array.from({ length: totalPages }, (_, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setCurrentPage(i)}
-                          className={`w-10 h-10 rounded-lg text-sm font-medium ${
-                            currentPage === i
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                          }`}
-                        >
-                          {i + 1}
-                        </button>
-                      ))}
-                    </div>
-                    
-                    <button
-                      onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPage + 1))}
-                      disabled={currentPage === totalPages - 1}
-                      className="p-2 rounded-lg bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
-                  </div>
-                )}
-
-                {/* CTA Section for non-logged users */}
-                {!session && (
-                  <div className="text-center mt-16 py-12 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl border border-blue-100">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                      Ready to personalize your experience?
-                    </h3>
-                    <p className="text-gray-600 mb-8 max-w-md mx-auto">
-                      Sign in to subscribe to newsletters, save articles, and get AI-powered recommendations.
-                    </p>
-                    <Link
-                      href="/auth/signin"
-                      className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-lg hover:shadow-xl"
-                    >
-                      <LogIn className="w-5 h-5 mr-2" />
-                      Get Started Free
-                    </Link>
-                  </div>
-                )}
-              </>
-            )}
-          </>
         )}
       </main>
     </div>

@@ -1,104 +1,62 @@
+// components/layout/header.tsx
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useSession, signOut } from 'next-auth/react'
+import { useState } from 'react'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import {
-  Search,
-  Bell,
-  User,
-  Settings,
-  LogOut,
-  Crown,
-  Sparkles,
-  Filter,
+import { useSession, signOut } from 'next-auth/react'
+import { 
+  User, 
+  ChevronDown, 
+  Settings, 
+  LogOut, 
+  Crown, 
+  Shield, 
   Home,
-  Shield,
-  ChevronDown,
+  Menu
 } from 'lucide-react'
 
-const adminEmails = ['admin@digestgenie.com', 'matekaj@proton.me', 'xmatekaj@gmail.com'];
+interface HeaderProps {
+  onMenuClick: () => void;
+}
 
-export function Header() {
+export function Header({ onMenuClick }: HeaderProps) {
   const { data: session } = useSession()
-  const [searchQuery, setSearchQuery] = useState('')
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
-  
+
   // Check if user is admin
-  const isAdmin = session?.user?.email && adminEmails.includes(session.user.email)
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowUserMenu(false)
-      }
-    }
-
-    if (showUserMenu) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside)
-      }
-    }
-  }, [showUserMenu])
+  const adminEmails = process.env.NEXT_PUBLIC_ADMIN_EMAILS?.split(',').map(e => e.trim()) || [
+    'admin@digestgenie.com',
+    'matekaj@proton.me',
+    'xmatekaj@gmail.com'
+  ]
+  const isAdmin = session?.user?.email ? adminEmails.includes(session.user.email) : false
 
   return (
-    <header className="bg-white border-b border-gray-200 px-6 py-4">
-      <div className="flex items-center justify-between">
-        {/* Logo and Search Bar */}
-        <div className="flex items-center space-x-4 flex-1">
-          
-          {/* Search Bar */}
-          <div className="flex-1 max-w-md">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                type="text"
-                placeholder="Ask your genie... ✨"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 bg-gray-50 border-gray-200 focus:bg-white focus:border-genie-300 focus:ring-genie-200"
-              />
-            </div>
-          </div>
+    <header className="bg-white border-b border-gray-200 px-4 sm:px-6">
+      <div className="flex items-center justify-between h-16">
+        <div className="flex items-center gap-4">
+          {/* Hamburger Menu - Mobile Only */}
+          <button
+            onClick={onMenuClick}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors lg:hidden"
+            aria-label="Open menu"
+          >
+            <Menu className="w-6 h-6 text-gray-700" />
+          </button>
+
+          {/* Upgrade Button - Desktop Only */}
+          <button className="hidden md:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-medium rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all duration-200 shadow-sm">
+            <Crown className="w-4 h-4" />
+            <span>Upgrade to Pro</span>
+          </button>
         </div>
 
-        {/* Header Actions */}
-        <div className="flex items-center space-x-3">
-          {/* Magic Filter - Hidden on mobile */}
-          {/* <Button variant="outline" size="sm" className="hidden lg:flex items-center">
-            <Filter className="w-4 h-4 mr-2" />
-            Magic Filter
-          </Button> */}
-
-          {/* Notifications */}
-          <Button variant="outline" size="sm" className="relative">
-            <Bell className="w-4 h-4" />
-            <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 flex items-center justify-center bg-magic-500 text-white text-xs">
-              3
-            </Badge>
-          </Button>
-
-          {/* Upgrade Badge - Hidden on mobile */}
-          <Badge className="hidden md:flex bg-gradient-to-r from-magic-500 to-genie-500 text-white hover:from-magic-600 hover:to-genie-600 cursor-pointer">
-            <Crown className="w-3 h-3 mr-1" />
-            Free Genie
-            <Sparkles className="w-3 h-3 ml-1" />
-          </Badge>
-
-          {/* Divider */}
-          <div className="h-8 w-px bg-gray-200 hidden sm:block"></div>
-
-          {/* Admin Panel Link (if admin) */}
+        <div className="flex items-center gap-4">
+          {/* Admin Panel Link - Desktop Only */}
           {isAdmin && (
             <Link
               href="/admin"
-              className="hidden sm:flex items-center space-x-2 px-3 py-2 text-sm font-medium text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-md transition-colors"
+              className="hidden sm:flex items-center gap-2 px-3 py-2 text-sm font-medium text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
             >
               <Shield className="w-4 h-4" />
               <span>Admin Panel</span>
@@ -111,12 +69,12 @@ export function Header() {
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex items-center space-x-2 hover:bg-gray-100 rounded-md p-2 transition-colors"
             >
-              <div className="w-8 h-8 bg-gradient-to-br from-genie-500 to-magic-500 rounded-full flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-full flex items-center justify-center">
                 <User className="w-4 h-4 text-white" />
               </div>
               <div className="text-left hidden md:block">
                 <p className="text-sm font-medium text-gray-900">
-                  {session?.user?.name?.split(' ')[0] || 'Genie User'}
+                  {session?.user?.name?.split(' ')[0] || 'User'}
                 </p>
                 <p className="text-xs text-gray-500">{session?.user?.email}</p>
               </div>
@@ -128,7 +86,7 @@ export function Header() {
               <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg py-1 z-50 border border-gray-200">
                 {/* User Info (shown on mobile) */}
                 <div className="px-4 py-3 border-b border-gray-100 md:hidden">
-                  <p className="text-sm font-medium text-gray-900">{session?.user?.name || 'Genie User'}</p>
+                  <p className="text-sm font-medium text-gray-900">{session?.user?.name || 'User'}</p>
                   <p className="text-xs text-gray-500">{session?.user?.email}</p>
                 </div>
 
