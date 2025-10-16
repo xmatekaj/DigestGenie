@@ -319,6 +319,13 @@ export default function AdminInboxPage() {
                         )}
                       </Button>
                     )}
+
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                    >
+                      <Eye className="h-4 w-4 mr-1" />Delete
+                    </Button>
                   </div>
                 </div>
               </CardHeader>
