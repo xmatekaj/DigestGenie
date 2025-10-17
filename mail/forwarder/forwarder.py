@@ -36,6 +36,28 @@ class EmailHandler(FileSystemEventHandler):
         except Exception as e:
             logger.error(f"Error processing {event.src_path}: {e}")
     
+    def is_valid_recipient_domain(to_addr, valid_domain='digest-genie.com'):
+    """
+    Check if recipient email address belongs to valid domain
+    Returns True if domain matches, False otherwise
+    """
+    if not to_addr:
+        return False
+    
+    try:
+        # Extract domain from email address
+        if '<' in to_addr:
+            # Handle format: "Name <email@domain.com>"
+            email_part = to_addr.split('<')[1].split('>')[0].strip()
+        else:
+            email_part = to_addr.strip()
+        
+        domain = email_part.split('@')[-1].lower()
+        return domain == valid_domain.lower()
+    except Exception as e:
+        logger.error(f"Error extracting domain from {to_addr}: {e}")
+        return False
+
     def process_email(self, filepath):
         """Process and forward email to webhook"""
         logger.info(f"Processing email: {filepath}")
@@ -50,6 +72,13 @@ class EmailHandler(FileSystemEventHandler):
             from_addr = msg.get('From', '')
             subject = msg.get('Subject', '')
             date = msg.get('Date', '')
+            
+            # Validate recipient domain
+            if not is_valid_recipient_domain(to_addr):
+                logger.warning(f"❌ Rejecting email - invalid domain: {to_addr}")
+                logger.info(f"Deleting email file: {filepath}")
+                os.remove(filepath)
+                return
             
             # Extract body
             body_text = ''
