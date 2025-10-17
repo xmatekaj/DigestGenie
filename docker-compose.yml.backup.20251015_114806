@@ -1,4 +1,3 @@
-# ~/dev/DigestGenie/docker-compose.yml
 services:
   nginx:
     image: nginx:alpine
@@ -87,27 +86,59 @@ services:
     image: mailhog/mailhog:latest
     container_name: digestgenie-mailhog
     ports:
-      - "25:1025"   # Receive emails on port 25
-      - "8025:8025" # Web UI
+      - "1025:1025"  # SMTP server
+      - "8025:8025"  # Web UI
     restart: unless-stopped
     networks:
       - digestgenie-network
 
+# Postfix Mail Server - Receives incoming emails
+  postfix:
+    image: boky/postfix:latest
+    container_name: digestgenie-postfix
+    hostname: mail.digest-genie.com
+    environment:
+      # Allow receiving from ANY sender (newsletters from anywhere)
+      - ALLOW_EMPTY_SENDER_DOMAINS=true
+      # Specify which domain we accept mail FOR
+      - POSTFIX_myhostname=mail.digest-genie.com
+      - POSTFIX_mydestination=digest-genie.com,mail.digest-genie.com,localhost
+      - POSTFIX_mynetworks=127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+      # Mailbox settings
+      - POSTFIX_virtual_mailbox_domains=digest-genie.com
+      - POSTFIX_virtual_mailbox_base=/var/mail
+      - POSTFIX_virtual_mailbox_maps=hash:/etc/postfix/vmailbox
+      - POSTFIX_virtual_alias_maps=hash:/etc/postfix/virtual
+    ports:
+      - "25:25"
+    volumes:
+      - ./mail/postfix:/var/spool/postfix
+      - ./mail/mailboxes:/var/mail
+      - ./mail/config:/etc/postfix/custom:ro
+    restart: unless-stopped
+    networks:
+      - digestgenie-network
+
+  # Email Forwarder - Forwards received emails to webhook
   mail-forwarder:
     build:
       context: ./mail/forwarder
       dockerfile: Dockerfile
     container_name: digestgenie-mail-forwarder
     environment:
-      - MAILHOG_API=http://digestgenie-mailhog:8025/api/v2/messages
       - WEBHOOK_URL=http://digestgenie-web:3000/api/webhooks/email
-      - CHECK_INTERVAL=5
+      - MAILBOX_PATH=/var/mail
+      - CHECK_INTERVAL=10
+    volumes:
+      - ./mail/mailboxes:/var/mail:ro
     depends_on:
-      - mailhog
+      - postfix
       - web
     restart: unless-stopped
     networks:
       - digestgenie-network
+
+
 
 volumes:
   postgres_data:
@@ -116,3 +147,4 @@ volumes:
 networks:
   digestgenie-network:
     driver: bridge
+
